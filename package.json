@@ -1,6 +1,8 @@
 {
-  "name": "monorepo",
+  "name": "collab",
+  "description": "A multilangual collaboration application",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
@@ -9,6 +11,7 @@
     "check-types": "turbo run check-types"
   },
   "devDependencies": {
+    "eslint-config-prettier": "^10.1.1",
     "prettier": "^3.7.4",
     "turbo": "^2.8.15",
     "typescript": "5.9.2"
