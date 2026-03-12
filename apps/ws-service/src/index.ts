@@ -4,7 +4,7 @@ import { logger } from './logger.js';
 import { initConsumer } from './redis.js';
 import { startWebSocketServer } from './wss.js';
 
-const redisChannel = 'ws-messages';
+const redisChannel = 'chat-messages';
 
 async function main() {
   try {
