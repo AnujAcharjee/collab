@@ -1,0 +1,21 @@
+import 'dotenv/config';
+
+import { logger } from './logger.js';
+import { initConsumer } from './redis.js';
+import { startWebSocketServer } from './wss.js';
+
+const redisChannel = 'ws-messages';
+
+async function main() {
+  try {
+    const wss = await startWebSocketServer();
+
+    await initConsumer(redisChannel, wss);
+  
+    logger.info('Server started successfully 🎉🎉');
+  } catch (error) {
+    logger.error({ error }, 'Failed to start service');
+  }
+}
+
+main()
