@@ -1,3 +1,5 @@
+import type { Redis } from 'ioredis';
+
 export interface RedisConfig {
   host: string;
   port: number;
@@ -13,3 +15,5 @@ export interface RedisEventHandlers {
   onClose?: () => void;
   onError?: (error: Error) => void;
 }
+
+export type RedisClient = Redis;
