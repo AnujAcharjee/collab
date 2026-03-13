@@ -25,4 +25,4 @@ const eventHandlers: RedisEventHandlers = {
   },
 };
 
-export const redisPub: RedisClient = createRedisClient(config, eventHandlers);
+export const redis: RedisClient = createRedisClient(config, eventHandlers);

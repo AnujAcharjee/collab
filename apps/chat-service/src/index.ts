@@ -2,13 +2,14 @@ import 'dotenv/config';
 
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
-import { redisPub } from './redis.js';
+import { redis } from './redis.js';
 import { logger } from './logger.js';
 import { validateRequest } from './middleware/validation.js';
 import { chatMessageSchema, type ChatMessage } from '@repo/validation';
 import { errorHandler } from './middleware/errorHandler.js';
 
-const redisChannel = 'chat-messages';
+const REDIS_CHANNEL = 'chat-messages';
+const CHAT_STREAM = 'stream:chat-messages';
 
 const app = express();
 
@@ -41,9 +42,15 @@ app.post('/publish', validateRequest(chatMessageSchema), async (req: Request, re
   }
 
   try {
-    await redisPub.publish(redisChannel, JSON.stringify(message));
-    logger.info({ message }, `Message published to Redis channel ${redisChannel}`);
-    res.status(200).json({ success: true, message: 'Message published successfully', data: { message } });
+    await redis
+      .pipeline()
+      .publish(REDIS_CHANNEL, JSON.stringify(message))
+      .xadd(CHAT_STREAM, 'MAXLEN', '~', 100000, '*', 'data', JSON.stringify(message))
+      .exec();
+    logger.info({ message }, `Message published to Redis channel ${REDIS_CHANNEL}`);
+    res
+      .status(200)
+      .json({ success: true, message: 'Message sent successfully', data: { message, status: 'sent' } });
   } catch (error) {
     logger.error({ error }, 'Failed to publish message to Redis');
     res.status(500).json({ success: false, error: 'Failed to publish message' });
