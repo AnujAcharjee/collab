@@ -1,15 +1,27 @@
 import { WebSocketServer } from 'ws';
 import { logger } from './logger.js';
-import type { AppWebSocket } from './types/wss.js';
+import type { AppWebSocket, SessionUser, AuthedRequest } from './types/wss.js';
+import { redis } from './redis.js';
 
 const PORT = Number(process.env.PORT) || 3002;
 const HEARTBEAT_INTERVAL = 30_000;
 const HEARTBEAT_VALUE = 0x01;
 
-let client: WebSocketServer | null = null;
+let server: WebSocketServer | null = null;
 let heartbeat: ReturnType<typeof setInterval> | null = null;
 let isInitialized = false;
 let shutdownHandlersRegistered = false;
+
+async function validateTicket(ticket: string): Promise<SessionUser | null> {
+  const key = `ws-ticket:${ticket}`;
+  const data = await redis.get(key);
+  if (!data) return null;
+
+  // Single use only
+  await redis.del(key);
+
+  return JSON.parse(data) as SessionUser;
+}
 
 function clearHeartbeat() {
   if (heartbeat) {
@@ -87,10 +99,35 @@ function registerShutdownHandlers(wss: WebSocketServer) {
   shutdownHandlersRegistered = true;
 }
 
-function getWssClient(): WebSocketServer {
-  if (!client) {
-    client = new WebSocketServer({
+function getWssServer(): WebSocketServer {
+  if (!server) {
+    server = new WebSocketServer({
       port: PORT,
+      verifyClient: ({ req }, callback) => {
+        const url = new URL(req.url ?? '/', 'http://localhost');
+        const ticket = url.searchParams.get('ticket');
+
+        if (!ticket) {
+          logger.warn('verifyClient: missing ticket');
+          return callback(false, 401, 'Unauthorized');
+        }
+
+        validateTicket(ticket)
+          .then((user) => {
+            if (!user) {
+              logger.warn({ ticket }, 'verifyClient: invalid or expired ticket');
+              return callback(false, 401, 'Unauthorized');
+            }
+
+            (req as AuthedRequest).user = user;
+            (req as AuthedRequest).sessionId = ticket;
+            callback(true);
+          })
+          .catch((err) => {
+            logger.error({ err }, 'verifyClient: unexpected error');
+            callback(false, 500, 'Internal Server Error');
+          });
+      },
       perMessageDeflate: {
         zlibDeflateOptions: { chunkSize: 1024, memLevel: 7, level: 3 },
         zlibInflateOptions: { chunkSize: 10 * 1024 },
@@ -102,61 +139,54 @@ function getWssClient(): WebSocketServer {
       },
     });
 
-    client.on('listening', () => {
+    server.on('listening', () => {
       logger.info({ port: PORT }, 'WebSocketServer listening');
     });
 
-    client.on('error', (err) => {
+    server.on('error', (err) => {
       logger.error({ err }, 'WebSocket server error');
     });
 
-    client.on('close', () => {
+    server.on('close', () => {
       clearHeartbeat();
       isInitialized = false;
-      client = null;
+      server = null;
     });
   }
 
-  return client;
+  return server;
 }
 
-export async function startWebSocketServer() {
-  const wss = getWssClient();
+export async function startWebSocketServer(): Promise<WebSocketServer> {
+  const wss = getWssServer();
 
   if (!isInitialized) {
     wss.on('connection', async (socket, req) => {
       const ws = socket as AppWebSocket;
+      const authedReq = req as AuthedRequest;
 
       try {
         ws.isAlive = true;
+        ws.sessionId = authedReq.sessionId;
+        ws.user = authedReq.user;
+
         ws.on('pong', () => {
           ws.isAlive = true;
         });
 
-        void req;
-        ws.user = ws.user ?? { username: 'anonymous' };
-        ws.sessionId = ws.sessionId ?? null;
+        logger.info({ username: ws.user.username, sessionId: ws.sessionId }, 'WebSocket client connected');
 
-        // TODO: authorize and validate session
-
-        // if (!authResult.isValidSession) {
-        //   logger.warn('initSocket:: Invalid session - closing socket');
-        //   ws.close(4403, 'Forbidden: Invalid session');
-        //   return;
-        // }
-
-        // ws.user = authResult.user;
-        // ws.sessionId = authResult.sessionId ?? null;
-
-        ws.on('message', async (data) => {
+        ws.on('message', (data: Buffer) => {
           try {
-            logger.debug({ data }, 'Received message from client');
+            const raw = data.toString();
+            logger.debug({ data: raw }, 'Received message from client');
+            // TODO: parse with wsMessageSchema and dispatch
           } catch (err) {
             logger.error({ err }, 'ws.on message handler error');
           }
         });
 
-        ws.on('close', async (code, reason) => {
+        ws.on('close', async (code: number, reason: Buffer) => {
           try {
             logger.info(
               {

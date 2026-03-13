@@ -1,26 +1,19 @@
 import type { WebSocket } from 'ws';
+import type { IncomingMessage } from 'http';
 
-export type AuthenticatedUser = {
+export interface SessionUser {
+  id: string;
   username: string;
-  [key: string]: unknown;
-};
+}
 
-export type AuthResult = {
-  isValidAccessToken: boolean;
-  isValidSession: boolean;
-  user: AuthenticatedUser;
-  sessionId?: string | null;
-};
+export interface AuthedRequest extends IncomingMessage {
+  user: SessionUser;
+  sessionId: string;
+}
 
-export type KafkaValue = {
-  action_kafka: 'SEND_UNSENT_MSG';
-  username: string;
-  sessionId: string | null;
-  gatewayId: string | undefined;
-};
-
-export type AppWebSocket = WebSocket & {
+export interface AppWebSocket extends WebSocket {
+  id: string;
   isAlive: boolean;
-  user: AuthenticatedUser;
-  sessionId: string | null;
-};
+  sessionId: string;
+  user: SessionUser;
+}
