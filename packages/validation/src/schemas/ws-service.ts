@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { no } from 'zod/locales';
 
 export const pubSubMessageSchema = z.object({
   text: z.string(),
