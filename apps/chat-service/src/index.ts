@@ -8,7 +8,7 @@ import { validateRequest } from './middleware/validation.js';
 import { chatMessageSchema, type ChatMessage } from '@repo/validation';
 import { errorHandler } from './middleware/errorHandler.js';
 
-const redisChannel = 'ws-messages';
+const redisChannel = 'chat-messages';
 
 const app = express();
 
