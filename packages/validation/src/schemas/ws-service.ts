@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { chatMessagePayloadSchema } from './chat.js';
 
 export const pubSubMessageSchema = z.object({
   text: z.string(),
@@ -11,13 +12,6 @@ export const pubSubMessageSchema = z.object({
 export type PubSubMessage = z.infer<typeof pubSubMessageSchema>;
 
 // WS message payload schemas
-const chatMessagePayloadSchema = z.object({
-  text: z.string(),
-  sender: z.string(),
-  room: z.string().optional(),
-  timestamp: z.number(),
-});
-
 const notificationPayloadSchema = z.object({
   title: z.string(),
   body: z.string(),
@@ -36,5 +30,4 @@ export const wsMessageSchema = z.discriminatedUnion('type', [
 ]);
 
 export type WsMessage = z.infer<typeof wsMessageSchema>;
-export type ChatMessagePayload = z.infer<typeof chatMessagePayloadSchema>;
 export type NotificationPayload = z.infer<typeof notificationPayloadSchema>;
