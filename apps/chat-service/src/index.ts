@@ -59,18 +59,22 @@ app.post('/publish', validateRequest(chatMessageSchema), async (req: Request, re
 
   const receivers: string[] = [];
 
-  const chatMessageAndReceiversPayload: ChatMessagePayloadAndReceivers = {
-    ...chatMessagePayload,
-    receivers,
-  };
-
   // redis actions
   try {
-    const pipelineResults = await redis
+    const pipeline = redis
       .pipeline()
-      .xadd(CHAT_STREAM, 'MAXLEN', '~', 100000, '*', 'data', JSON.stringify(chatMessagePayload))
-      .publish(REDIS_CHANNEL, JSON.stringify(chatMessageAndReceiversPayload))
-      .exec();
+      .xadd(CHAT_STREAM, 'MAXLEN', '~', 100000, '*', 'data', JSON.stringify(chatMessagePayload));
+
+    if (receivers.length > 0) {
+      const chatMessageAndReceiversPayload: ChatMessagePayloadAndReceivers = {
+        ...chatMessagePayload,
+        receivers,
+      };
+
+      pipeline.publish(REDIS_CHANNEL, JSON.stringify(chatMessageAndReceiversPayload));
+    }
+
+    const pipelineResults = await pipeline.exec();
 
     if (!pipelineResults) {
       throw new Error('Redis pipeline returned no results');
