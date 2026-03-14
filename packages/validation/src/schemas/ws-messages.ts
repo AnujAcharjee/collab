@@ -1,17 +1,6 @@
 import { z } from 'zod';
 import { chatMessagePayloadSchema } from './chat.js';
 
-export const pubSubMessageSchema = z.object({
-  text: z.string(),
-  receiver: z.array(z.string()).length(1, { message: 'At least one receiver is required' }),
-  sender: z.string(),
-  room: z.string().optional(),
-  timestamp: z.number(),
-});
-
-export type PubSubMessage = z.infer<typeof pubSubMessageSchema>;
-
-// WS message payload schemas
 const notificationPayloadSchema = z.object({
   title: z.string(),
   body: z.string(),

@@ -5,8 +5,14 @@ import cors from 'cors';
 import { redis } from './redis.js';
 import { logger } from './logger.js';
 import { validateRequest } from './middleware/validation.js';
-import { chatMessageSchema, type ChatMessage } from '@repo/validation';
+import {
+  chatMessageSchema,
+  type ChatMessage,
+  type ChatMessagePayloadAndReceivers,
+  type ChatMessagePayload,
+} from '@repo/validation';
 import { errorHandler } from './middleware/errorHandler.js';
+import { v4 as uuidv4 } from 'uuid';
 
 const REDIS_CHANNEL = 'chat-messages';
 const CHAT_STREAM = 'stream:chat-messages';
@@ -35,18 +41,47 @@ app.get('/health', (req: Request, res: Response) => {
 
 // Publish message to Redis channel
 app.post('/publish', validateRequest(chatMessageSchema), async (req: Request, res: Response) => {
-  const message = req.body as ChatMessage;
+  const message = req.body as ChatMessage['body'];
 
   if (!message) {
     return res.status(400).json({ success: false, error: 'Message is required' });
   }
 
+  // generate payload
+  const id = uuidv4();
+  const chatMessagePayload: ChatMessagePayload = {
+    ...message,
+    id,
+    createdAt: new Date().toISOString(),
+  };
+
+  // TODO: fetch receivers
+
+  const receivers: string[] = [];
+
+  const chatMessageAndReceiversPayload: ChatMessagePayloadAndReceivers = {
+    ...chatMessagePayload,
+    receivers,
+  };
+
+  // redis actions
   try {
-    await redis
+    const pipelineResults = await redis
       .pipeline()
-      .publish(REDIS_CHANNEL, JSON.stringify(message))
-      .xadd(CHAT_STREAM, 'MAXLEN', '~', 100000, '*', 'data', JSON.stringify(message))
+      .xadd(CHAT_STREAM, 'MAXLEN', '~', 100000, '*', 'data', JSON.stringify(chatMessagePayload))
+      .publish(REDIS_CHANNEL, JSON.stringify(chatMessageAndReceiversPayload))
       .exec();
+
+    if (!pipelineResults) {
+      throw new Error('Redis pipeline returned no results');
+    }
+
+    const pipelineError = pipelineResults.find(([error]) => error);
+
+    if (pipelineError) {
+      throw pipelineError[0];
+    }
+
     logger.info({ message }, `Message published to Redis channel ${REDIS_CHANNEL}`);
     res
       .status(200)

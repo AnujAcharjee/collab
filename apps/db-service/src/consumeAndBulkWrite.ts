@@ -4,14 +4,26 @@ import { type ChatMessagePayload, chatMessagePayloadSchema } from '@repo/validat
 import { logger } from './logger.js';
 
 const STREAM_KEY = 'stream:chat-messages';
+const DLQ_STREAM_KEY = 'stream:chat-messages-dlq';
 const GROUP_NAME = 'db-workers';
-const CONSUMER_NAME = 'worker-1';
+const CONSUMER_NAME = process.env.INSTANCE_NAME!;
 
 const BLOCK_MS = 500;
 const BATCH_SIZE = 100;
 
 type RedisStreamResponse = [string, [string, string[]][]][];
 type MessageFields = Record<string, string>;
+type FailedMessage = {
+  id: string;
+  fields: MessageFields;
+  reason: string;
+  error: unknown;
+};
+type ParsedMessage = {
+  id: string;
+  payload: ChatMessagePayload;
+  fields: MessageFields;
+};
 
 function parseFields(fields: string[]): MessageFields {
   const map: MessageFields = {};
@@ -31,6 +43,49 @@ function parseFields(fields: string[]): MessageFields {
 function toPayload(fields: MessageFields): ChatMessagePayload {
   const rawPayload = fields.data ? JSON.parse(fields.data) : fields;
   return chatMessagePayloadSchema.parse(rawPayload);
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+
+  return String(error);
+}
+
+async function moveToDlq(messages: FailedMessage[]): Promise<void> {
+  if (messages.length === 0) return;
+
+  const pipeline = redis.pipeline();
+
+  for (const message of messages) {
+    pipeline.xadd(
+      DLQ_STREAM_KEY,
+      '*',
+      'originalStream',
+      STREAM_KEY,
+      'originalId',
+      message.id,
+      'reason',
+      message.reason,
+      'error',
+      getErrorMessage(message.error),
+      'data',
+      JSON.stringify(message.fields),
+    );
+  }
+
+  pipeline.xack(STREAM_KEY, GROUP_NAME, ...messages.map((message) => message.id));
+
+  const results = await pipeline.exec();
+
+  if (!results) {
+    throw new Error('DLQ pipeline returned no results');
+  }
+
+  const pipelineError = results.find(([error]) => error);
+
+  if (pipelineError) {
+    throw pipelineError[0];
+  }
 }
 
 export async function consumeAndBulkInsert(): Promise<void> {
@@ -56,50 +111,78 @@ export async function consumeAndBulkInsert(): Promise<void> {
 
   if (!messages.length) return;
 
-  const payloads: ChatMessagePayload[] = [];
-  const successIds: string[] = [];
-  const failedIds: string[] = [];
+  const parsedMessages: ParsedMessage[] = [];
+  const failedMessages: FailedMessage[] = [];
 
   for (const [id, fields] of messages) {
+    const fieldMap = parseFields(fields);
+
     try {
-      const fieldMap = parseFields(fields);
       const payload = toPayload(fieldMap);
 
-      payloads.push(payload);
-      successIds.push(id);
+      parsedMessages.push({ id, payload, fields: fieldMap });
     } catch (err) {
-      console.error(`Failed to parse message ${id}`, err);
-      failedIds.push(id);
+      logger.error(err, `Failed to parse message ${id}`);
+      failedMessages.push({
+        id,
+        fields: fieldMap,
+        reason: 'validation_failed',
+        error: err,
+      });
     }
   }
 
-  if (payloads.length === 0) return;
+  if (failedMessages.length > 0) {
+    try {
+      await moveToDlq(failedMessages);
+      logger.warn(
+        failedMessages.map((message) => message.id),
+        `${failedMessages.length} messages moved to DLQ`,
+      );
+    } catch (err) {
+      logger.error(err, 'Failed to move invalid messages to DLQ.');
+    }
+  }
+
+  if (parsedMessages.length === 0) return;
 
   try {
     await prisma.chatMessage.createMany({
-      data: payloads.map((p) => ({
-        id: p.id,
+      data: parsedMessages.map(({ payload }) => ({
+        id: payload.id,
         type: MessageType.TEXT,
-        parentId: p.parentId ?? null,
-        userId: p.sender,
-        roomId: p.roomId,
-        text: p.text ?? '',
-        attachments: p.attachments ? JSON.parse(p.attachments) : null,
-        createdAt: new Date(p.createdAt),
+        parentId: payload.parentId ?? null,
+        userId: payload.sender,
+        roomId: payload.roomId,
+        text: payload.text ?? '',
+        attachments: payload.attachments ? JSON.parse(payload.attachments) : null,
+        createdAt: new Date(payload.createdAt),
       })),
       skipDuplicates: true,
     });
 
+    const successIds = parsedMessages.map((message) => message.id);
+
     if (successIds.length > 0) {
       await redis.xack(STREAM_KEY, GROUP_NAME, ...successIds);
-      console.log(`Inserted and acked ${successIds.length} messages`);
+      logger.info(`Inserted and acked ${successIds.length} messages`);
     }
   } catch (err) {
-    console.error('Bulk insert failed. Messages remain in PEL for retry.', err);
-  }
+    logger.error(err, 'Bulk insert failed. Moving batch to DLQ.');
 
-  if (failedIds.length > 0) {
-    console.warn(`${failedIds.length} messages failed validation`, failedIds);
+    try {
+      await moveToDlq(
+        parsedMessages.map((message) => ({
+          id: message.id,
+          fields: message.fields,
+          reason: 'db_insert_failed',
+          error: err,
+        })),
+      );
+      logger.warn(`${parsedMessages.length} messages moved to DLQ after insert failure`);
+    } catch (dlqError) {
+      logger.error(dlqError, 'Failed to move insert failures to DLQ.');
+    }
   }
 }
 

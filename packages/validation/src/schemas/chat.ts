@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { string, z } from 'zod';
 
 const charMessageBaseSchema = z.object({
   sender: z.string({ message: 'Sender must be a string' }),
@@ -24,3 +24,11 @@ export const chatMessagePayloadSchema = charMessageBaseSchema.extend({
 });
 
 export type ChatMessagePayload = z.infer<typeof chatMessagePayloadSchema>;
+
+export const chatMessagePayloadAndReceiversSchema = chatMessagePayloadSchema.extend({
+  receivers: z
+    .array(z.string(), { message: 'Receivers must be an array of strings' })
+    .min(1, { message: 'At least one receiver is required' }),
+});
+
+export type ChatMessagePayloadAndReceivers = z.infer<typeof chatMessagePayloadAndReceiversSchema>;
