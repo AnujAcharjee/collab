@@ -1,4 +1,13 @@
 {
   "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "[prisma]": {
+    "editor.defaultFormatter": "Prisma.prisma"
+  },
+  "[protobuf]": {
+    "editor.defaultFormatter": "tooltitudeteam.tooltitude-pb"
+  },
+  "[prototext]": {
+    "editor.defaultFormatter": "tooltitudeteam.tooltitude-pb"
+  }
 }

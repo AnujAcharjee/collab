@@ -1,11 +1,19 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
+  "globalEnv": ["PORT", "GRPC_PORT", "NODE_ENV", "INSTANCE_NAME", "REDIS_HOST", "REDIS_PORT", "REDIS_USERNAME", "REDIS_PASSWORD", "REDIS_TLS", "REDIS_DB"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [
+        ".next/**", 
+        "!.next/cache/**",  
+        "generated/**",
+        "*.js",
+        "*.d.ts",
+        "google/**"
+      ]
     },
     "lint": {
       "dependsOn": ["^lint"]
