@@ -13,14 +13,22 @@ let isInitialized = false;
 let shutdownHandlersRegistered = false;
 
 async function validateTicket(ticket: string): Promise<SessionUser | null> {
-  const key = `ws-ticket:${ticket}`;
-  const data = await redis.get(key);
+  const ticketKey = `ws-ticket:${ticket}`;
+  const data = await redis.get(ticketKey);
   if (!data) return null;
 
   // Single use only
-  await redis.del(key);
+  await redis.del(ticketKey);
 
-  return JSON.parse(data) as SessionUser;
+  const user = JSON.parse(data) as SessionUser;
+  const userToWssMapKey = `ws-map:${user.id}`;
+
+  await redis.set(
+    userToWssMapKey,
+    JSON.stringify({ sid: ticket, uid: user.id, srv: process.env.INSTANCE_NAME }),
+  );
+
+  return user;
 }
 
 function clearHeartbeat() {
