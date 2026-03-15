@@ -3,7 +3,7 @@ import { ensureGroup, consumeAndBulkInsert } from './consumeAndBulkWrite.js';
 import { logger } from './logger.js';
 import { Server, ServerCredentials } from '@grpc/grpc-js';
 import { DbService } from '@repo/proto';
-import { chatRoom, roomMembers } from './grpc/index.js';
+import { chatRoom, roomMembers, user } from './grpc/index.js';
 
 const GRPC_PORT = process.env.GRPC_PORT || 5051;
 
@@ -11,6 +11,7 @@ const grpc = new Server();
 grpc.addService(DbService, {
   ...roomMembers,
   ...chatRoom,
+  ...user,
 });
 
 grpc.bindAsync(`0.0.0.0:${GRPC_PORT}`, ServerCredentials.createInsecure(), (err, port) => {
