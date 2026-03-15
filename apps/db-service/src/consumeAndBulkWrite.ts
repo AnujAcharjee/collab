@@ -1,5 +1,5 @@
 import { redis } from './redis.js';
-import prisma, { MessageType } from './db.js';
+import prisma, { MessageType as PrismaMessageType} from './db.js';
 import { type ChatMessagePayload, chatMessagePayloadSchema } from '@repo/validation';
 import { logger } from './logger.js';
 
@@ -150,7 +150,7 @@ export async function consumeAndBulkInsert(): Promise<void> {
     await prisma.chatMessage.createMany({
       data: parsedMessages.map(({ payload }) => ({
         id: payload.id,
-        type: MessageType.TEXT,
+        type: PrismaMessageType.TEXT,
         parentId: payload.parentId ?? null,
         userId: payload.sender,
         roomId: payload.roomId,
@@ -190,10 +190,10 @@ export async function ensureGroup() {
   try {
     await redis.xinfo('GROUPS', STREAM_KEY);
 
-    // logger.info('Consumer group already exists');
+    logger.info('Consumer group already exists');
   } catch {
     await redis.xgroup('CREATE', STREAM_KEY, GROUP_NAME, '$', 'MKSTREAM');
 
-    // logger.info('Consumer group created');
+    logger.info('Consumer group created');
   }
 }

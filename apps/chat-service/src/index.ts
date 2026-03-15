@@ -13,27 +13,22 @@ import {
 } from '@repo/validation';
 import { errorHandler } from './middleware/errorHandler.js';
 import { v4 as uuidv4 } from 'uuid';
+import { credentials } from '@grpc/grpc-js';
+import { DbClient } from '@repo/proto';
+import { getRoomMemberIds } from './grpc/index.js';
 
+const PORT = process.env.PORT ?? 3001;
+const GRPC_PORT = process.env.GRPC_PORT ?? 5051;
 const REDIS_CHANNEL = 'chat-messages';
 const CHAT_STREAM = 'stream:chat-messages';
 
 const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-async function main() {
-  try {
-    app.use(cors());
-    app.use(express.json());
-    app.use(express.urlencoded({ extended: true }));
-    app.listen(process.env.PORT || 3001, () => {
-      logger.info(`Chat service is running on port ${process.env.PORT || 3001}`);
-    });
-
-    logger.info('Server started successfully 🎉🎉');
-  } catch (error) {
-    logger.error({ error }, 'Failed to start service');
-  }
-}
-main();
+// gRPC client
+export const dbClient = new DbClient(`localhost:${GRPC_PORT}`, credentials.createInsecure());
 
 app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
@@ -43,10 +38,6 @@ app.get('/health', (req: Request, res: Response) => {
 app.post('/publish', validateRequest(chatMessageSchema), async (req: Request, res: Response) => {
   const message = req.body as ChatMessage['body'];
 
-  if (!message) {
-    return res.status(400).json({ success: false, error: 'Message is required' });
-  }
-
   // generate payload
   const id = uuidv4();
   const chatMessagePayload: ChatMessagePayload = {
@@ -55,12 +46,12 @@ app.post('/publish', validateRequest(chatMessageSchema), async (req: Request, re
     createdAt: new Date().toISOString(),
   };
 
-  // TODO: fetch receivers
-
-  const receivers: string[] = [];
-
-  // redis actions
   try {
+    // fetch receivers
+    const receivers = await getRoomMemberIds(chatMessagePayload.roomId);
+    logger.debug(receivers, 'Message Receivers');
+
+    // redis actions
     const pipeline = redis
       .pipeline()
       .xadd(CHAT_STREAM, 'MAXLEN', '~', 100000, '*', 'data', JSON.stringify(chatMessagePayload));
@@ -97,3 +88,7 @@ app.post('/publish', validateRequest(chatMessageSchema), async (req: Request, re
 });
 
 app.use(errorHandler);
+
+app.listen(PORT, () => {
+  logger.info(`Chat service running on port ${PORT}`);
+});

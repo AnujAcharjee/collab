@@ -12,6 +12,8 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@grpc/grpc-js": "^1.14.3",
+    "@repo/proto": "workspace:*",
     "@repo/logger": "workspace:*",
     "@repo/redis": "workspace:*",
     "@repo/validation": "workspace:*",

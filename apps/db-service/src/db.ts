@@ -1,5 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, MessageType } from '../generated/prisma/client.js';
+import { PrismaClient } from '../generated/prisma/client.js';
 import { logger } from './logger.js';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
@@ -30,5 +30,5 @@ const handleShutdown = async () => {
 process.on('SIGTERM', handleShutdown);
 process.on('SIGINT', handleShutdown);
 
-export { MessageType };
+export * from "../generated/prisma/client.js"
 export default prisma;

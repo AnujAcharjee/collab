@@ -16,21 +16,25 @@
     "db:prod:migrate": "pnpm exec prisma migrate deploy"
   },
   "dependencies": {
+    "@grpc/grpc-js": "^1.14.3",
+    "@grpc/proto-loader": "^0.8.0",
+    "@repo/proto": "workspace:*",
+    "@prisma/adapter-pg": "^7.4.2",
+    "@prisma/client": "^7.4.2",
     "@repo/logger": "workspace:*",
     "@repo/redis": "workspace:*",
     "@repo/validation": "workspace:*",
+    "chat-service": "^1.0.0",
     "dotenv": "^17.3.1",
-    "@prisma/adapter-pg": "^7.4.2",
-    "@prisma/client": "^7.4.2",
     "pg": "^8.20.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "eslint": "^9.39.1",
-    "tsx": "^4.21.0",
-    "typescript": "5.9.2",
     "@types/pg": "^8.18.0",
-    "prisma": "^7.4.2"
+    "eslint": "^9.39.1",
+    "prisma": "^7.4.2",
+    "tsx": "^4.21.0",
+    "typescript": "5.9.2"
   }
 }

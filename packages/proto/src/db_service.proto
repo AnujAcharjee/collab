@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package chat;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+// Enums
+
+enum RoomMemberRole {
+  MEMBER = 0;
+  ADMIN = 1;
+  OWNER = 2;
+}
+
+// Shared messages 
+
+message User {
+  string id = 1;
+  string email = 2;
+  string username = 3;
+  google.protobuf.StringValue name = 4;
+  google.protobuf.StringValue bio = 5;
+  google.protobuf.StringValue avatar_url = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message ChatRoomMember {
+  string id = 1;
+  string roomId = 2;
+  string userId = 3;
+  RoomMemberRole role = 4;
+  google.protobuf.Timestamp created_at = 5;
+  User user = 6;
+}
+
+message ChatRoom {
+  string id = 1;
+  string name = 2;
+  google.protobuf.StringValue description = 3;
+  bool isPrivate = 4;
+  google.protobuf.StringValue creator_id = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+  User creator = 8;
+  repeated ChatRoomMember members = 9;
+}
+
+// Db Service 
+
+service Db {
+  rpc GetRoom(GetRoomRequest) returns (ChatRoom);
+  rpc CreateRoom(CreateRoomRequest) returns (ChatRoom);
+  rpc EditRoom(EditRoomRequest) returns (ChatRoom);
+  rpc DeleteRoom(DeleteRoomRequest) returns (DeleteRoomResponse);
+
+  rpc GetRoomMemberIds(GetRoomMemberIdsRequest) returns (GetRoomMemberIdsResponse);
+  rpc GetRoomMembers(GetRoomMembersRequest) returns (GetRoomMembersResponse);
+  rpc AddRoomMember(AddRoomMemberRequest) returns (ChatRoomMember);
+  rpc EditRoomMember(EditRoomMemberRequest) returns (ChatRoomMember);
+  rpc RemoveRoomMember(RemoveRoomMemberRequest) returns (RemoveRoomMemberResponse);
+}
+
+// Room RPCs 
+
+message GetRoomRequest {
+  string id = 1;
+}
+
+message CreateRoomRequest {
+  string name = 1;
+  google.protobuf.StringValue description = 2;
+  bool isPrivate = 3;
+  string creatorId = 4;
+}
+
+message EditRoomRequest {
+  string id = 1;
+  google.protobuf.StringValue name = 2;
+  google.protobuf.StringValue description = 3;
+  google.protobuf.BoolValue isPrivate = 4;
+}
+
+message DeleteRoomRequest {
+  string id = 1;
+}
+
+message DeleteRoomResponse {
+  bool success = 1;
+  string id = 2;
+}
+
+// Member RPCs
+
+message GetRoomMemberIdsRequest {
+  string roomId = 1;
+}
+
+message GetRoomMemberIdsResponse {
+  repeated string memberIds = 1;
+}
+
+message GetRoomMembersRequest {
+  string roomId = 1;
+}
+
+message GetRoomMembersResponse {
+  repeated ChatRoomMember members = 1;
+}
+
+message AddRoomMemberRequest {
+  string roomId = 1;
+  string userId = 2;
+  RoomMemberRole role = 3;
+}
+
+message EditRoomMemberRequest {
+  string id = 1;
+  RoomMemberRole role = 2;
+}
+
+message RemoveRoomMemberRequest {
+  string id = 1;
+}
+
+message RemoveRoomMemberResponse {
+  bool success = 1;
+  string id = 2;
+}

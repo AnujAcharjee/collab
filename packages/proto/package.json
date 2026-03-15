@@ -1,0 +1,31 @@
+{
+  "name": "@repo/proto",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "types": "./index.d.ts"
+    },
+    "./src/*.proto": "./src/*.proto"
+  },
+  "scripts": {
+    "clean": "rm -rf ./generated",
+    "generate": "pnpm run clean && buf generate",
+    "build": "pnpm run generate && tsc"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.11.0",
+    "@grpc/grpc-js": "^1.14.3",
+    "google-protobuf": "^4.0.2"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "^1.50.0",
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.19.15",
+    "ts-proto": "^2.11.5"
+  }
+}
