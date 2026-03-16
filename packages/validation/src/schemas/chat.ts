@@ -1,4 +1,9 @@
-import { string, z } from 'zod';
+import { z } from 'zod';
+
+const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const uuidV4Schema = (message: string) => z.string({ message }).regex(uuidV4Regex, { message });
+const isoDatetimeSchema = (message: string) => z.string().datetime({ message });
 
 const charMessageBaseSchema = z.object({
   sender: z.string({ message: 'Sender must be a string' }),
@@ -9,7 +14,7 @@ const charMessageBaseSchema = z.object({
     .optional(), // for attachments-only messages
   attachments: z.string({ message: 'Attachments must be a string' }).optional(), // JSON string
   roomId: z.string({ message: 'Room id must be a string' }),
-  parentId: z.uuidv4({ message: 'Parent id must be a valid uuidv4' }).optional(),
+  parentId: uuidV4Schema('Parent id must be a valid uuidv4').optional(),
 });
 
 export const chatMessageSchema = z.object({
@@ -19,8 +24,8 @@ export const chatMessageSchema = z.object({
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 
 export const chatMessagePayloadSchema = charMessageBaseSchema.extend({
-  id: z.uuidv4({ message: 'Message id must be a valid uuidv4' }),
-  createdAt: z.iso.datetime({ message: 'Created at must be a valid ISO datetime' }),
+  id: uuidV4Schema('Message id must be a valid uuidv4'),
+  createdAt: isoDatetimeSchema('Created at must be a valid ISO datetime'),
 });
 
 export type ChatMessagePayload = z.infer<typeof chatMessagePayloadSchema>;
