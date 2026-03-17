@@ -59,8 +59,8 @@ export const initConsumer = async (channel: string, wss: WebSocketServer): Promi
     const { sender, text, attachments, roomId, parentId, createdAt, id, receivers } = parsed;
 
     const clients = receivers
-      .map((id: string) =>
-        [...wss.clients].find((client): client is AppWebSocket => (client as AppWebSocket).sessionId === id),
+      .map((receiverId: string) =>
+        [...wss.clients].find((client): client is AppWebSocket => (client as AppWebSocket).user.id === receiverId),
       )
       .filter((client: AppWebSocket): client is AppWebSocket => client !== undefined);
 

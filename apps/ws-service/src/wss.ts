@@ -15,19 +15,10 @@ const userToWssMapKey = (uid: string): string => `ws-map:${uid}`;
 
 async function validateTicket(ticket: string): Promise<SessionUser | null> {
   const ticketKey = `ws-ticket:${ticket}`;
-  const data = await redis.get(ticketKey);
+  const data = await redis.getdel(ticketKey);
   if (!data) return null;
 
-  // Single use only
-  await redis.del(ticketKey);
-
-  const user = JSON.parse(data) as SessionUser;
-
-  await redis.set(
-    userToWssMapKey(user.id),
-    JSON.stringify({ sid: ticket, uid: user.id, srv: process.env.INSTANCE_NAME }),
-  );
-
+  const user: SessionUser = JSON.parse(data);
   return user;
 }
 
@@ -183,6 +174,11 @@ export async function startWebSocketServer(): Promise<WebSocketServer> {
         ws.on('pong', () => {
           ws.isAlive = true;
         });
+
+        await redis.set(
+          userToWssMapKey(ws.user.id),
+          JSON.stringify({ sid: ws.sessionId, uid: ws.user.id, srv: process.env.INSTANCE_NAME }),
+        );
 
         logger.info({ username: ws.user.username, sessionId: ws.sessionId }, 'WebSocket client connected');
 
