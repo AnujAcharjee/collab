@@ -5,12 +5,13 @@ import { redis } from './redis.js';
 
 const PORT = Number(process.env.PORT) || 3002;
 const HEARTBEAT_INTERVAL = 30_000;
-const HEARTBEAT_VALUE = 0x01;
 
 let server: WebSocketServer | null = null;
 let heartbeat: ReturnType<typeof setInterval> | null = null;
 let isInitialized = false;
 let shutdownHandlersRegistered = false;
+
+const userToWssMapKey = (uid: string): string => `ws-map:${uid}`;
 
 async function validateTicket(ticket: string): Promise<SessionUser | null> {
   const ticketKey = `ws-ticket:${ticket}`;
@@ -21,10 +22,9 @@ async function validateTicket(ticket: string): Promise<SessionUser | null> {
   await redis.del(ticketKey);
 
   const user = JSON.parse(data) as SessionUser;
-  const userToWssMapKey = `ws-map:${user.id}`;
 
   await redis.set(
-    userToWssMapKey,
+    userToWssMapKey(user.id),
     JSON.stringify({ sid: ticket, uid: user.id, srv: process.env.INSTANCE_NAME }),
   );
 
@@ -59,6 +59,7 @@ function startHeartbeat(wss: WebSocketServer) {
       wss.clients.forEach((socket) => {
         const ws = socket as AppWebSocket;
 
+        // remove dead connections
         if (!ws.isAlive) {
           ws.terminate();
           return;
@@ -66,8 +67,9 @@ function startHeartbeat(wss: WebSocketServer) {
 
         ws.isAlive = false;
 
+        // ping client
         try {
-          ws.ping(Buffer.from([HEARTBEAT_VALUE]));
+          ws.ping('ping');
         } catch (sendErr) {
           logger.warn({ sendErr }, 'heartbeat: failed to send ping');
         }
@@ -196,6 +198,9 @@ export async function startWebSocketServer(): Promise<WebSocketServer> {
 
         ws.on('close', async (code: number, reason: Buffer) => {
           try {
+            // del user session from ws map
+            await redis.del(userToWssMapKey(ws.user.id));
+
             logger.info(
               {
                 username: ws.user?.username ?? null,

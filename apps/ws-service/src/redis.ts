@@ -59,21 +59,24 @@ export const initConsumer = async (channel: string, wss: WebSocketServer): Promi
     const { sender, text, attachments, roomId, parentId, createdAt, id, receivers } = parsed;
 
     const clients = receivers
-      .map((id) =>
-        [...wss.clients].find(
-          (client): client is AppWebSocket =>
-            client.readyState === WebSocket.OPEN && (client as AppWebSocket).sessionId === id,
-        ),
+      .map((id: string) =>
+        [...wss.clients].find((client): client is AppWebSocket => (client as AppWebSocket).sessionId === id),
       )
-      .filter((client): client is AppWebSocket => client !== undefined);
+      .filter((client: AppWebSocket): client is AppWebSocket => client !== undefined);
 
     logger.debug({ clients: clients.length }, 'Number of clients to receive the message');
 
-    const payload = {
+    const wsMessage: WsMessage = {
       type: 'chat_message',
       payload: { id, parentId, sender, text, attachments, roomId, createdAt },
-    } as WsMessage;
-    clients.forEach((client) => client.send(JSON.stringify(payload)));
+    };
+    const wsStrMessage = JSON.stringify(wsMessage);
+
+    clients.forEach((client: AppWebSocket) => {
+      if (client.readyState === client.OPEN) {
+        client.send(wsStrMessage);
+      }
+    });
   });
 
   // Subscribe to the Redis channel
