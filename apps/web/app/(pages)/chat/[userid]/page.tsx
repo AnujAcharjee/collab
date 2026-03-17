@@ -19,6 +19,15 @@ export default function HomePage() {
   const { userid } = useParams<{ userid: string }>()
 
   const [user, setUser] = useState<UserRecord | null>(null)
+  const [isLg, setIsLg] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)")
+    setIsLg(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsLg(e.matches)
+    mq.addEventListener("change", handler)
+    return () => mq.removeEventListener("change", handler)
+  }, [])
 
   const getUser = async () => {
     try {
@@ -42,16 +51,18 @@ export default function HomePage() {
 
   return (
     <div className="h-svh w-full">
-      <ResizablePanelGroup
-        // direction="horizontal"
-        className="h-full w-full rounded-lg"
-      >
-        <ResizablePanel defaultSize={30} minSize={20}>
-          <div className="h-full overflow-auto">
-            <RoomsSection />
-          </div>
-        </ResizablePanel>
-        <ResizableHandle withHandle />
+      <ResizablePanelGroup className="h-full w-full rounded-lg">
+        {isLg && (
+          <>
+            <ResizablePanel defaultSize={30} minSize={20}>
+              <div className="h-full overflow-auto">
+                <RoomsSection />
+              </div>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+          </>
+        )}
+
         <ResizablePanel defaultSize={70} minSize={40}>
           <div className="h-full overflow-auto">
             <ChatSection />
