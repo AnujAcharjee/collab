@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import type { EditUserRequest as EditUserInput, UserRecord } from '@repo/validation';
-import type { EditUserRequest as EditUserRpcRequest } from '@repo/proto';
-import { dbClient } from '../grpc/client.js';
+import { grpcUnary, type EditUserRequest as EditUserRpcRequest, type User } from '@repo/proto';
+import { dbGrpcClient } from '../grpc/client.js';
 import { toAppError, toUserRecord } from './@helpers.js';
 
 function updateUser(id: string, input: EditUserInput['body']): Promise<UserRecord> {
@@ -14,12 +14,9 @@ function updateUser(id: string, input: EditUserInput['body']): Promise<UserRecor
     avatarUrl: input.avatarUrl,
   };
 
-  return new Promise((resolve, reject) => {
-    dbClient.editUser(request, (error, response) => {
-      if (error) return reject(toAppError(error));
-      resolve(toUserRecord(response));
-    });
-  });
+  return grpcUnary<User>((callback) => dbGrpcClient.editUser(request, callback))
+    .then((response) => toUserRecord(response))
+    .catch((error) => Promise.reject(toAppError(error)));
 }
 
 export const editUser = async (req: Request, res: Response) => {

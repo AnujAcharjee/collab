@@ -1,18 +1,15 @@
 import type { Request, Response } from 'express';
 import type { DeleteUserRequest as DeleteUserInput } from '@repo/validation';
-import type { DeleteUserRequest as DeleteUserRpcRequest } from '@repo/proto';
-import { dbClient } from '../grpc/client.js';
+import { grpcUnary, type DeleteUserRequest as DeleteUserRpcRequest, type DeleteUserResponse } from '@repo/proto';
+import { dbGrpcClient } from '../grpc/client.js';
 import { toAppError } from './@helpers.js';
 
 function removeUser(id: string): Promise<void> {
   const request: DeleteUserRpcRequest = { id };
 
-  return new Promise((resolve, reject) => {
-    dbClient.deleteUser(request, (error) => {
-      if (error) return reject(toAppError(error));
-      resolve();
-    });
-  });
+  return grpcUnary<DeleteUserResponse>((callback) => dbGrpcClient.deleteUser(request, callback))
+    .then(() => undefined)
+    .catch((error) => Promise.reject(toAppError(error)));
 }
 
 export const deleteUser = async (req: Request, res: Response) => {

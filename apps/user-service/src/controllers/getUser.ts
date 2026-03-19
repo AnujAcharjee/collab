@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import type { GetUserRequest } from '@repo/validation';
-import type { GetUserRequest as GetUserRpcRequest, User } from '@repo/proto';
-import { dbClient } from '../grpc/client.js';
+import { grpcUnary, type GetUserRequest as GetUserRpcRequest, type User } from '@repo/proto';
+import { dbGrpcClient } from '../grpc/client.js';
 import type { UserRecord } from '@repo/validation';
 import { toAppError, toUserRecord } from './@helpers.js';
 
@@ -18,12 +18,9 @@ function fetchUser(lookup: UserLookup): Promise<UserRecord> {
     username: lookup.username,
   };
 
-  return new Promise((resolve, reject) => {
-    dbClient.getUser(request, (error, response) => {
-      if (error) return reject(toAppError(error));
-      resolve(toUserRecord(response));
-    });
-  });
+  return grpcUnary<User>((callback) => dbGrpcClient.getUser(request, callback))
+    .then((response) => toUserRecord(response))
+    .catch((error) => Promise.reject(toAppError(error)));
 }
 
 export const getUser = async (req: Request, res: Response) => {

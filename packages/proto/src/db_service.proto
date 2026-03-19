@@ -13,6 +13,13 @@ enum RoomMemberRole {
   OWNER = 2;
 }
 
+enum MessageType {
+  TEXT = 0;
+  IMAGE = 1;
+  FILE = 2;
+  SYSTEM = 3;
+}
+
 // Shared messages 
 
 message User {
@@ -62,13 +69,18 @@ service Db {
   rpc EditRoomMember(EditRoomMemberRequest) returns (ChatRoomMember);
   rpc RemoveRoomMember(RemoveRoomMemberRequest) returns (RemoveRoomMemberResponse);
 
+  rpc CreateMessage(CreateMessageRequest) returns (RoomMessages);
+  rpc EditMessageText(EditMessageTextRequest) returns (RoomMessages);
+  rpc DeleteMessage(DeleteMessageRequest) returns (DeleteMessageResponse);
+  rpc GetRoomMessages(GetRoomMessagesRequest) returns (GetRoomMessagesResponse);
+
   rpc CreateUser(CreateUserRequest) returns (User);
   rpc EditUser(EditUserRequest) returns (User);
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
   rpc GetUser(GetUserRequest) returns (User);
 }
 
-// Room RPCs 
+// ------ Room RPCs ------
 
 message GetRoomRequest {
   string id = 1;
@@ -97,7 +109,7 @@ message DeleteRoomResponse {
   string id = 2;
 }
 
-// Member RPCs
+// ------ Member RPCs ------
 
 message GetRoomMemberIdsRequest {
   string roomId = 1;
@@ -135,7 +147,57 @@ message RemoveRoomMemberResponse {
   string id = 2;
 }
 
-// User RPCs
+// ------ Room messages RPCs ------
+
+message CreateMessageRequest {
+  string userId = 1;
+  string roomId = 2;
+  google.protobuf.StringValue text = 3;
+  google.protobuf.StringValue attachments = 4;
+  google.protobuf.StringValue parentId = 5;
+  MessageType type = 6;
+}
+
+message EditMessageTextRequest {
+  string id = 1;
+  string text = 2;
+}
+
+message DeleteMessageRequest {
+  string id = 1;
+}
+
+message DeleteMessageResponse {
+  bool success = 1;
+  string id = 2;
+}
+
+message GetRoomMessagesRequest {
+  string roomId = 1;
+  uint32 limit = 2;
+}
+
+message RoomMessages {
+  string id = 1;
+  MessageType type = 2;
+  google.protobuf.StringValue parentId = 3;
+  string userId = 4;
+  string roomId = 5;
+  string text = 6;
+  google.protobuf.StringValue attachments = 7;
+  bool isDeleted = 8;
+  google.protobuf.Timestamp modifiedAt = 9;
+  google.protobuf.Timestamp createdAt = 10;
+  google.protobuf.Timestamp updatedAt = 11;
+  string senderUsername = 12;
+  google.protobuf.StringValue senderAvatarUrl = 13;
+}
+
+message GetRoomMessagesResponse {
+  repeated RoomMessages messages = 1;
+}
+
+// ------ User RPCs ------
 
 message CreateUserRequest {
   string email = 1;

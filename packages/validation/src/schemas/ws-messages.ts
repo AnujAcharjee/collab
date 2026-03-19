@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { chatMessagePayloadSchema } from './chat';
+import { chatMessagePayloadSchema } from './chat.js';
 
-const notificationPayloadSchema = z.object({
+export const notificationPayloadSchema = z.object({
   title: z.string(),
   body: z.string(),
   timestamp: z.number(),

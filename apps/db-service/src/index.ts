@@ -3,14 +3,14 @@ import { ensureGroup, consumeAndBulkInsert } from './consumeAndBulkWrite.js';
 import { logger } from './logger.js';
 import { Server, ServerCredentials } from '@grpc/grpc-js';
 import { DbService } from '@repo/proto';
-import { chatRoom, roomMembers, user } from './grpc/index.js';
+import { chatRoom, messages, user } from './grpc/index.js';
 
 const GRPC_PORT = process.env.GRPC_PORT || 5051;
 
 const grpc = new Server();
 grpc.addService(DbService, {
-  ...roomMembers,
   ...chatRoom,
+  ...messages,
   ...user,
 });
 

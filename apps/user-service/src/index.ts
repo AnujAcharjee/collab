@@ -5,7 +5,7 @@ import express, { type Request, type Response } from 'express';
 import { logger } from './logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { userRouter } from './routes/user.js';
-import { dbClient } from './grpc/client.js';
+import { dbGrpcClient } from './grpc/client.js';
 
 const PORT = process.env.PORT ?? 3003;
 

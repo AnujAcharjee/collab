@@ -33,12 +33,10 @@ const userBaseSchema = z.object({
   ),
 });
 
-export const creteUserFormSchema = z.object({
-  userBaseSchema,
-});
+export const createUserFromSchema = userBaseSchema;
 
 export const createUserSchema = z.object({
-  body: creteUserFormSchema,
+  body: createUserFromSchema,
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>['body'];

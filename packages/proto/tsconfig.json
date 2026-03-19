@@ -6,7 +6,7 @@
     "moduleResolution": "node16",
     "module": "node16"
   },
-  "include": ["index.ts", "generated/**/*"],
+  "include": ["index.ts", "grpc.ts", "generated/**/*"],
   "exclude": [
     "node_modules",
     "dist",
