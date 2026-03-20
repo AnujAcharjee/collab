@@ -2,10 +2,10 @@ import 'dotenv/config';
 
 import cors from 'cors';
 import express, { type Request, type Response } from 'express';
+import { roomRouter } from './routes/room.js';
 import { logger } from './logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { userRouter } from './routes/user.js';
-import { dbGrpcClient } from './grpc/client.js';
 
 const PORT = process.env.PORT ?? 3003;
 
@@ -19,10 +19,11 @@ app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 });
 
-app.use('/users', userRouter);
+app.use('/api/v1/users', userRouter);
+app.use('/api/v1/rooms', roomRouter);
 
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  logger.info(`User service running on port: ${PORT}`);
+  logger.info(`HTTP service running on port: ${PORT}`);
 });

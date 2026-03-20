@@ -6,11 +6,11 @@ import {
   getUserSchema,
   issueTicketSchema,
 } from '@repo/validation';
-import { createUser } from '../controllers/createUser.js';
-import { deleteUser } from '../controllers/deleteUser.js';
-import { editUser } from '../controllers/editUser.js';
-import { getUser } from '../controllers/getUser.js';
-import { issueTicket } from '../controllers/issueTicket.js';
+import { createUser } from '../controllers/user/createUser.js';
+import { deleteUser } from '../controllers/user/deleteUser.js';
+import { editUser } from '../controllers/user/editUser.js';
+import { getUser } from '../controllers/user/getUser.js';
+import { issueTicket } from '../controllers/user/issueTicket.js';
 import { validateRequest } from '../middleware/validation.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 

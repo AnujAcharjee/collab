@@ -1,9 +1,8 @@
 import type { Request, Response } from 'express';
-import type { GetUserRequest } from '@repo/validation';
+import type { GetUserRequest, UserRecord } from '@repo/validation';
 import { grpcUnary, type GetUserRequest as GetUserRpcRequest, type User } from '@repo/proto';
-import { dbGrpcClient } from '../grpc/client.js';
-import type { UserRecord } from '@repo/validation';
-import { toAppError, toUserRecord } from './@helpers.js';
+import { dbGrpcClient } from '../../grpc/client.js';
+import { toGrpcAppError, toUserRecord } from '../@helpers.js';
 
 type UserLookup = {
   id?: string;
@@ -20,7 +19,7 @@ function fetchUser(lookup: UserLookup): Promise<UserRecord> {
 
   return grpcUnary<User>((callback) => dbGrpcClient.getUser(request, callback))
     .then((response) => toUserRecord(response))
-    .catch((error) => Promise.reject(toAppError(error)));
+    .catch((error) => Promise.reject(toGrpcAppError(error, 'User')));
 }
 
 export const getUser = async (req: Request, res: Response) => {

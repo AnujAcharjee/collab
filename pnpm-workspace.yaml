@@ -1,3 +1,9 @@
 packages:
   - "apps/*"
   - "packages/*"
+allowBuilds:
+  bufferutil: true
+  msw: false
+  prisma: true
+  unrs-resolver: false
+  utf-8-validate: true
