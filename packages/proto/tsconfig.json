@@ -1,15 +1,11 @@
 {
   "extends": "@repo/typescript-config/base.json",
   "compilerOptions": {
-    "outDir": ".",
-    "strictNullChecks": true,
-    "moduleResolution": "node16",
-    "module": "node16"
+    "outDir": "dist",
+    "strictNullChecks": true
+    // "moduleResolution": "node16",
+    // "module": "node16"
   },
-  "include": ["index.ts", "grpc.ts", "generated/**/*"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src"
-  ]
+  "include": ["src/*.ts", "generated/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
