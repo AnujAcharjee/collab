@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/resizable"
 import axios from "axios"
 import { UserRecord } from "@repo/validation"
-import { wsClient } from "@/app/ws"
+import { wsClient } from "@/ws"
 
 export default function HomePage() {
   const userArvUrl = process.env.NEXT_PUBLIC_USER_SRV_URL
