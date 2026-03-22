@@ -18,6 +18,7 @@ import {
   AvatarBadge,
 } from "@/components/ui/avatar"
 import { IconSearch, IconPinned, IconVolume3 } from "@tabler/icons-react"
+import { UserRecord } from "@repo/validation"
 
 const tags = Array.from({ length: 50 }).map(
   (_, i, a) => `v1.2.0-beta.${a.length - i}`
@@ -28,7 +29,7 @@ const isPinned = true
 const isMuted = true
 const unread = false
 
-export default function RoomsSection() {
+export default function RoomsSection({ user }: { user: UserRecord }) {
   return (
     <div className="h-svh w-full p-4">
       <Card className="flex h-full w-full flex-col">
@@ -74,11 +75,14 @@ export default function RoomsSection() {
 
         <CardFooter className="flex gap-2">
           <Avatar className="h-7 w-7 border border-border">
-            <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
-            <AvatarFallback>CN</AvatarFallback>
+            <AvatarImage
+              src={user.avatarUrl ? user.avatarUrl : undefined}
+              alt={user.username}
+            />
+            <AvatarFallback>{user.username}</AvatarFallback>
             <AvatarBadge className="right-0.5 bottom-0.5 h-2.5 w-2.5 border-[1.5px] border-background bg-green-500" />
           </Avatar>
-          <span>username</span>
+          <span>{user.username}</span>
         </CardFooter>
       </Card>
     </div>

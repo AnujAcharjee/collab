@@ -38,6 +38,13 @@ export default function HomePage() {
     }
   }
 
+  const getRoom = async () => {
+    try {
+      const res = await axios.get(`${userArvUrl}?id=${userid}`)
+      setUser(res.data.data.user as UserRecord)
+    } catch (error) {}
+  }
+
   useEffect(() => {
     if (!userid) return
     ;(async () => await getUser())()
@@ -56,7 +63,7 @@ export default function HomePage() {
           <>
             <ResizablePanel defaultSize={30} minSize={20}>
               <div className="h-full overflow-auto">
-                <RoomsSection />
+                {user && <RoomsSection user={user} />}
               </div>
             </ResizablePanel>
             <ResizableHandle withHandle />
@@ -65,7 +72,7 @@ export default function HomePage() {
 
         <ResizablePanel defaultSize={70} minSize={40}>
           <div className="h-full overflow-auto">
-            <ChatSection />
+            {/* <ChatSection userId={userid} room={}/> */}
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

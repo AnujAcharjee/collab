@@ -32,9 +32,15 @@ import {
 
 const tags = Array.from({ length: 50 }).map((_, i, a) => Number(a.length - i))
 
-export default function ChatSection() {
+export default function ChatSection({
+  userId,
+  room,
+}: {
+  userId: string
+  room
+}) {
   return (
-    <div className="h-svh w-full p-4">
+    <div className="h-svh w-full px-0 py-4 lg:p-4">
       <Card className="flex h-full w-full flex-col">
         {/* Header */}
         <CardHeader className="shrink-0">
@@ -42,8 +48,8 @@ export default function ChatSection() {
             <div className="rounded-md bg-white/8 p-1 hover:cursor-pointer hover:bg-white/15 lg:hidden">
               <IconChevronLeft stroke={2} height={20} width={20} />
             </div>
-            <div className="rounded-md bg-white/8 px-4 py-1 text-sm hover:cursor-pointer hover:bg-white/15">
-              Group Name
+            <div className="rounded-md border bg-white/8 px-4 py-1 text-sm hover:cursor-pointer hover:bg-white/15">
+              {room ? room.name : null}
             </div>
             <div className="rounded-md bg-white/8 p-1 text-sm hover:cursor-pointer hover:bg-white/15">
               <IconDotsVertical stroke={2} height={20} width={20} />

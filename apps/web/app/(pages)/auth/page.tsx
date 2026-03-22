@@ -53,7 +53,7 @@ export default function AuthForm() {
     try {
       const res = await axios.post(`${userArvUrl}`, { ...data })
 
-      router.push(`/chat/${res.data.data.user.id}`)
+      router.push(`/user/${res.data.data.user.id}`)
       toast.success("Account created 🎉🎉", toastOptions)
     } catch (error) {
       const message = axios.isAxiosError(error)
