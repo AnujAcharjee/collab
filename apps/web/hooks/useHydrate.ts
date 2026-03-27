@@ -21,7 +21,9 @@ export const useHydrate = (userid: string) => {
 
   const fetch = useCallback(async () => {
     try {
-      if (user?.id && user.id !== userid) {
+      const currentUserId = useAppStore.getState().user?.id
+
+      if (currentUserId && currentUserId !== userid) {
         resetAppState()
       }
 
@@ -34,7 +36,7 @@ export const useHydrate = (userid: string) => {
       resetAppState()
       console.error("Error while fetching user: ", error)
     }
-  }, [hydrateUserState, resetAppState, userid, user?.id])
+  }, [hydrateUserState, resetAppState, userid])
 
   return { hasHydrated, fetch, user, rooms }
 }

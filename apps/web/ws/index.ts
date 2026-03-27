@@ -4,13 +4,17 @@
  *
  */
 
-import { UserRecord, WsMessage } from "@repo/validation"
+import {
+  type IssueTicketRequest,
+  type IssueTicketResponse,
+  type WsMessage,
+} from "@repo/validation"
 import axios from "axios"
 import { handlers } from "./handlers"
+import { usersApiUrl } from '@/constants/apiUrls'
 
 const wsUrl: string = process.env.NEXT_PUBLIC_WS_SRV_URL!
-const httpSrvUrl: string = process.env.NEXT_PUBLIC_HHTP_SRV_URL!
-const usersApiUrl = `${httpSrvUrl}/api/v1/users`
+type WsTicketUser = IssueTicketRequest["body"]
 
 class Ws {
   #ws: WebSocket | null = null
@@ -20,7 +24,7 @@ class Ws {
 
   constructor() {}
 
-  #reconnect(user: UserRecord) {
+  #reconnect(user: WsTicketUser) {
     if (this.#reconnectAttempts >= this.#maxReconnectAttempts) {
       console.error("Max re-connection attempts reached. Stopped re-trying.")
       return
@@ -43,7 +47,7 @@ class Ws {
     return this.#ws?.readyState === WebSocket.OPEN
   }
 
-  async connect(user: UserRecord) {
+  async connect(user: WsTicketUser) {
     if (this.#ws && this.#ws.readyState === WebSocket.CONNECTING) {
       return
     }
@@ -56,11 +60,7 @@ class Ws {
     // get ws ticket
     let ticket: string | null = null
     try {
-      const res = await axios.post(`${usersApiUrl}/ws-ticket`, {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-      })
+      const res = await axios.post<IssueTicketResponse>(`${usersApiUrl}/ws-ticket`, user)
 
       ticket = res.data.ticket
     } catch {

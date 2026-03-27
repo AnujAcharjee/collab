@@ -1,4 +1,4 @@
-import { createRedisClient, type RedisClient, type RedisConfig, type RedisEventHandlers } from '@repo/redis';
+import { createRedisClient, type RedisClient, type RedisEventHandlers } from '@repo/redis';
 import { logger } from './logger.js';
 import { WebSocketServer } from 'ws';
 import {
@@ -60,11 +60,10 @@ export const initConsumer = async (channel: string, wss: WebSocketServer): Promi
 
     const { sender, text, attachments, roomId, parentId, createdAt, id, receivers } = parsed;
 
-    const clients = receivers
-      .map((receiverId: string) =>
-        [...wss.clients].find((client): client is AppWebSocket => (client as AppWebSocket).user.id === receiverId),
-      )
-      .filter((client: AppWebSocket | undefined): client is AppWebSocket => client !== undefined);
+    const receiverIds = new Set(receivers);
+    const clients = [...wss.clients].filter(
+      (client): client is AppWebSocket => receiverIds.has((client as AppWebSocket).user.id),
+    );
 
     logger.debug({ clients: clients.length }, 'Number of clients to receive the message');
 

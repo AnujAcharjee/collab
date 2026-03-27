@@ -1,8 +1,9 @@
 import type { Request, Response } from 'express';
-import type { CreateMessageInput } from '@repo/validation';
+import type { ChatMessagePayloadAndReceivers, CreateMessageInput } from '@repo/validation';
 import { MessageType } from '@repo/proto';
-import { createMessage as createMessageRpc } from '../grpc/index.js';
+import { createMessage as createMessageRpc, getRoomMemberIds } from '../grpc/index.js';
 import { logger } from '../logger.js';
+import { redis } from '../redis.js';
 import { toHttpError } from './@helpers.js';
 
 const messageTypeMap = {
@@ -11,6 +12,7 @@ const messageTypeMap = {
   FILE: MessageType.FILE,
   SYSTEM: MessageType.SYSTEM,
 } as const;
+const REDIS_CHANNEL = 'chat-messages';
 
 export const createMessage = async (req: Request, res: Response) => {
   const { sender, text, attachments, roomId, parentId, type } = req.body as CreateMessageInput['body'];
@@ -24,6 +26,27 @@ export const createMessage = async (req: Request, res: Response) => {
       parentId,
       type: messageTypeMap[type ?? 'TEXT'],
     });
+
+    try {
+      const receivers = await getRoomMemberIds(message.roomId);
+
+      if (receivers.length > 0) {
+        const wsPayload: ChatMessagePayloadAndReceivers = {
+          id: message.id,
+          sender: message.userId,
+          text: message.text,
+          attachments: message.attachments,
+          roomId: message.roomId,
+          parentId: message.parentId,
+          createdAt: message.createdAt,
+          receivers,
+        };
+
+        await redis.publish(REDIS_CHANNEL, JSON.stringify(wsPayload));
+      }
+    } catch (publishError) {
+      logger.error({ publishError, messageId: message.id }, 'Message created but live publish failed');
+    }
 
     return res.status(201).json({
       success: true,

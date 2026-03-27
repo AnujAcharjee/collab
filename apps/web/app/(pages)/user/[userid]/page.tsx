@@ -26,17 +26,24 @@ function getLargeScreenSnapshot() {
   return window.matchMedia(largeScreenQuery).matches
 }
 
+function getLargeScreenServerSnapshot() {
+  return false
+}
+
 export default function HomePage() {
   const { userid } = useParams<{ userid: string }>()
   const { hasHydrated, fetch, user, rooms } = useHydrate(userid)
   const activeRoomId = useAppStore((state) => state.activeRoom)
   const isCurrentUser = user?.id === userid
+  const wsUserId = isCurrentUser ? (user?.id ?? null) : null
+  const wsUsername = isCurrentUser ? (user?.username ?? null) : null
+  const wsEmail = isCurrentUser ? (user?.email ?? null) : null
   const visibleRooms = isCurrentUser ? rooms : []
 
   const isLg = useSyncExternalStore(
     subscribeToLargeScreen,
     getLargeScreenSnapshot,
-    () => false
+    getLargeScreenServerSnapshot
   )
 
   const activeRoom =
@@ -51,10 +58,16 @@ export default function HomePage() {
 
   // Connect Ws
   useEffect(() => {
-    if (!isCurrentUser || !user?.id) return
-    wsClient.connect(user)
+    if (!wsUserId || !wsUsername || !wsEmail) return
+
+    void wsClient.connect({
+      id: wsUserId,
+      username: wsUsername,
+      email: wsEmail,
+    })
+
     return () => wsClient.close()
-  }, [isCurrentUser, user])
+  }, [wsUserId, wsUsername, wsEmail])
 
   return (
     <div className="h-svh w-full">
@@ -66,15 +79,18 @@ export default function HomePage() {
                 {isCurrentUser && <RoomsSection />}
               </div>
             </ResizablePanel>
-            <ResizableHandle withHandle />
+            
+            {isLg && <ResizableHandle withHandle />}
           </>
         )}
 
-        <ResizablePanel defaultSize={70} minSize={40}>
-          <div className="h-full overflow-auto">
-            <ChatSection room={activeRoom} />
-          </div>
-        </ResizablePanel>
+        {activeRoom && (
+          <ResizablePanel defaultSize={70} minSize={40}>
+            <div className="h-full overflow-auto">
+              <ChatSection room={activeRoom} />
+            </div>
+          </ResizablePanel>
+        )}
       </ResizablePanelGroup>
     </div>
   )

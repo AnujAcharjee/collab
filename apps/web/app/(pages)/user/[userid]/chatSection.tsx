@@ -26,13 +26,10 @@ import {
 } from "@tabler/icons-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "sonner"
-import type {
-  ChatMessagePayload,
-  CreateMessageInput,
-  RoomRecord,
-} from "@repo/validation"
+import type { CreateMessageInput, RoomRecord } from "@repo/validation"
 import { chatApiUrl } from "@/constants/apiUrls"
 import axios from "axios"
+import type { RoomMessage } from "@/stores/app-store"
 
 type ChatHistoryMessage = {
   id: string
@@ -69,22 +66,28 @@ const toastOptions = {
   position: "top-center" as const,
 }
 
+const EMPTY_ROOM_MESSAGES: RoomMessage[] = []
+
 export default function ChatSection({ room }: { room: RoomRecord | null }) {
+  const roomId = room?.id ?? null
   const setActiveRoom = useAppStore((state) => state.setActiveRoom)
   const user = useAppStore((state) => state.user)
+  const addMessage = useAppStore((state) => state.addMessage)
+  const setMessages = useAppStore((state) => state.setMessages)
+  const roomMessages = useAppStore((state) =>
+    roomId ? (state.messages[roomId] ?? EMPTY_ROOM_MESSAGES) : EMPTY_ROOM_MESSAGES
+  )
   const updateRoomLastMessage = useAppStore(
     (state) => state.updateRoomLastMessage
   )
 
-  const [messages, setMessages] = useState<ChatHistoryMessage[]>([])
   const [draft, setDraft] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    if (!room?.id) {
-      setMessages([])
+    if (!roomId) {
       setDraft("")
       return
     }
@@ -96,14 +99,17 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
 
       try {
         const res = await axios.get<ChatHistoryResponse>(
-          `${chatApiUrl}/rooms/${room.id}/messages`
+          `${chatApiUrl}/rooms/${roomId}/messages`
         )
 
         if (isCancelled) {
           return
         }
 
-        setMessages(res.data.data?.messages ?? [])
+        setMessages(
+          roomId,
+          (res.data.data?.messages ?? []).map(toRoomMessage)
+        )
       } catch (error) {
         if (!isCancelled) {
           const message = axios.isAxiosError<CreateMessageResponse>(error)
@@ -113,7 +119,6 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
             : "Unable to load messages"
 
           toast.error(message, toastOptions)
-          setMessages([])
         }
       } finally {
         if (!isCancelled) {
@@ -127,11 +132,11 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
     return () => {
       isCancelled = true
     }
-  }, [room?.id])
+  }, [roomId, setMessages])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
-  }, [messages, room?.id])
+  }, [roomId, roomMessages])
 
   if (!room) {
     return (
@@ -173,9 +178,9 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
         throw new Error("Message was not returned")
       }
 
-      setMessages((currentMessages) => [...currentMessages, message])
+      addMessage(activeRoom.id, toRoomMessage(message))
       setDraft("")
-      updateRoomLastMessage(activeRoom.id, toStoreMessage(message))
+      updateRoomLastMessage(activeRoom.id, toRoomPreviewMessage(message))
     } catch (error) {
       const message = axios.isAxiosError<CreateMessageResponse>(error)
         ? (error.response?.data?.error ??
@@ -191,8 +196,8 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
 
   return (
     <div className="h-svh w-full p-2 lg:p-4">
-      <Card className="flex h-full w-full flex-col p-0">
-        <CardHeader className="shrink-0 bg-white/5 p-3">
+      <Card className="flex h-full w-full flex-col p-0 border border-primary/50">
+        <CardHeader className="shrink-0 p-3 bg-white/5">
           <CardTitle className="flex items-center justify-between gap-2 text-xs sm:text-sm lg:gap-5">
             <button
               type="button"
@@ -219,22 +224,38 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
                 </div>
               )}
 
-              {!isLoading && messages.length === 0 && (
+              {!isLoading && roomMessages.length === 0 && (
                 <div className="text-center text-sm text-muted-foreground">
                   No messages yet. Start the conversation.
                 </div>
               )}
 
-              {messages.map((message) => (
-                <MessageBubble
-                  key={message.id}
-                  username={message.senderUsername}
-                  avatar={message.senderAvatarUrl}
-                  message={message.isDeleted ? "Message deleted" : message.text}
-                  timestamp={formatMessageTime(message.createdAt)}
-                  isOwn={message.userId === user?.id}
-                />
-              ))}
+              {roomMessages.map((message) => {
+                const isOwn = message.sender === user?.id
+                const username = isOwn
+                  ? (user?.username ?? "You")
+                  : (message.senderUsername ??
+                    room.creator?.username ??
+                    "Room member")
+                const avatar = isOwn
+                  ? (user?.avatarUrl ?? undefined)
+                  : (message.senderAvatarUrl ??
+                    room.creator?.avatarUrl ??
+                    undefined)
+
+                return (
+                  <MessageBubble
+                    key={message.id}
+                    username={username}
+                    avatar={avatar}
+                    message={
+                      message.isDeleted ? "Message deleted" : message.text
+                    }
+                    timestamp={formatMessageTime(message.createdAt)}
+                    isOwn={isOwn}
+                  />
+                )
+              })}
 
               <div ref={messagesEndRef} />
             </div>
@@ -249,7 +270,7 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
               void sendMessage()
             }}
           >
-            <InputGroup className="h-10 w-full">
+            <InputGroup className="h-10 w-full border border-primary/50">
               <InputGroupInput
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
@@ -285,7 +306,7 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
               </InputGroupAddon>
             </InputGroup>
 
-            <div className="rounded-full border border-white/20 bg-white/10 p-1.5">
+            <div className="rounded-full border border-border/50 bg-white/10 p-1.5">
               <IconMicrophone
                 stroke={2}
                 height={20}
@@ -349,7 +370,22 @@ function MessageBubble({
   )
 }
 
-function toStoreMessage(message: ChatHistoryMessage): ChatMessagePayload {
+function toRoomMessage(message: ChatHistoryMessage): RoomMessage {
+  return {
+    id: message.id,
+    sender: message.userId,
+    roomId: message.roomId,
+    text: message.text,
+    attachments: message.attachments,
+    parentId: message.parentId,
+    createdAt: message.createdAt,
+    senderUsername: message.senderUsername,
+    senderAvatarUrl: message.senderAvatarUrl,
+    isDeleted: message.isDeleted,
+  }
+}
+
+function toRoomPreviewMessage(message: ChatHistoryMessage): RoomMessage {
   return {
     id: message.id,
     sender: message.userId,

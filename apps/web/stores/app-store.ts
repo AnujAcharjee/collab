@@ -7,6 +7,12 @@ import type {
   ChatMessagePayload,
 } from "@repo/validation"
 
+export type RoomMessage = ChatMessagePayload & {
+  senderUsername?: string
+  senderAvatarUrl?: string
+  isDeleted?: boolean
+}
+
 /**
  * Here only User and rooms are stored in Indexed Db
  */
@@ -27,9 +33,9 @@ interface RoomsState {
 }
 
 interface MessagesState {
-  messages: Record<string, ChatMessagePayload[]>
-  addMessage: (roomId: string, msg: ChatMessagePayload) => void
-  setMessages: (roomId: string, msgs: ChatMessagePayload[]) => void
+  messages: Record<string, RoomMessage[]>
+  addMessage: (roomId: string, msg: RoomMessage) => void
+  setMessages: (roomId: string, msgs: RoomMessage[]) => void
 }
 
 interface HydrationState {
@@ -64,6 +70,24 @@ function getNextActiveRoomId(
   }
 
   return rooms[0].id
+}
+
+function mergeRoomMessages(
+  currentMessages: RoomMessage[],
+  incomingMessages: RoomMessage[]
+) {
+  const mergedMessages = new Map(
+    currentMessages.map((message) => [message.id, message])
+  )
+
+  for (const message of incomingMessages) {
+    mergedMessages.set(message.id, message)
+  }
+
+  return [...mergedMessages.values()].sort(
+    (left, right) =>
+      new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+  )
 }
 
 // Slices
@@ -125,7 +149,7 @@ const createMessagesSlice: StateCreator<AppState, [], [], MessagesState> = (
     set((state) => ({
       messages: {
         ...state.messages,
-        [roomId]: [...(state.messages[roomId] ?? []), msg],
+        [roomId]: mergeRoomMessages(state.messages[roomId] ?? [], [msg]),
       },
     })),
 
@@ -133,7 +157,7 @@ const createMessagesSlice: StateCreator<AppState, [], [], MessagesState> = (
     set((state) => ({
       messages: {
         ...state.messages,
-        [roomId]: msgs,
+        [roomId]: mergeRoomMessages(state.messages[roomId] ?? [], msgs),
       },
     })),
 })

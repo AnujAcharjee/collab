@@ -76,10 +76,10 @@ export default function RoomsSection() {
 
   return (
     <div className="h-svh w-full p-4">
-      <Card className="flex h-full w-full flex-col">
-        <CardHeader className="shadow-b flex flex-col gap-4 shadow-white/10">
+      <Card className="flex h-full w-full flex-col p-0 border border-primary/50">
+        <CardHeader className="shadow-b flex flex-col gap-4 py-4 shadow-white/10">
           <CardTitle className="flex items-center justify-between">
-            <div className="text-xl font-medium">Collab</div>
+            <div className="text-xl font-medium text-primary">Collab</div>
           </CardTitle>
 
           <CardDescription className="w-full">
@@ -113,7 +113,7 @@ export default function RoomsSection() {
           </ScrollArea>
         </CardContent>
 
-        <CardFooter className="flex gap-2">
+        <CardFooter className="flex gap-2 bg-primary/80 text-primary-foreground">
           <Avatar className="h-7 w-7 border border-border">
             <AvatarImage
               src={user.avatarUrl ? user.avatarUrl : undefined}
@@ -236,7 +236,7 @@ function DialogCreateRoom({ creatorId }: { creatorId: string }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border/60 bg-background text-base leading-none text-muted-foreground transition-colors hover:bg-muted">
+        <Button className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border/80 bg-background text-base leading-none text-muted-foreground transition-colors hover:bg-muted">
           +
         </Button>
       </DialogTrigger>
