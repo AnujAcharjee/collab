@@ -1,5 +1,6 @@
 "use client"
 
+import type { CSSProperties } from "react"
 import { Fragment } from "react/jsx-runtime"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -17,23 +18,66 @@ import {
   AvatarImage,
   AvatarBadge,
 } from "@/components/ui/avatar"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
+import AppForm, { type FieldConfig } from "@/components/AppForm"
 import { IconSearch, IconPinned, IconVolume3 } from "@tabler/icons-react"
-import { UserRecord } from "@repo/validation"
+import { z } from "zod"
+import { useShallow } from "zustand/react/shallow"
 
-const tags = Array.from({ length: 50 }).map(
-  (_, i, a) => `v1.2.0-beta.${a.length - i}`
-)
+import { type CreateRoomInput, createRoomSchema } from "@repo/validation"
+import type { RoomRecord } from "@repo/validation"
+import useAppStore from "@/stores/app-store"
+import { roomsApiUrl } from "@/constants/apiUrls"
+import axios from "axios"
 
-const isActiveRoom = true
 const isPinned = true
 const isMuted = true
 const unread = false
 
-export default function RoomsSection({ user }: { user: UserRecord }) {
+type CreateRoomFormInput = Omit<CreateRoomInput, "creatorId" | "isPrivate"> & {
+  isPrivate: "true" | "false"
+}
+
+const roomBodySchema = createRoomSchema.shape.body
+
+const createRoomFormSchema = z.object({
+  name: roomBodySchema.shape.name,
+  description: roomBodySchema.shape.description,
+  isPrivate: z.enum(["false", "true"]),
+})
+
+const toastOptions = {
+  position: "top-center" as const,
+  style: {
+    "--border-radius": "calc(var(--radius) + 4px)",
+  } as CSSProperties,
+}
+
+export default function RoomsSection() {
+  const { activeRoom, rooms, user } = useAppStore(
+    useShallow((state) => ({
+      activeRoom: state.activeRoom,
+      rooms: state.rooms,
+      user: state.user,
+    }))
+  )
+
+  if (!user) {
+    return null
+  }
+
   return (
     <div className="h-svh w-full p-4">
       <Card className="flex h-full w-full flex-col">
-        <CardHeader className="flex flex-col gap-4">
+        <CardHeader className="shadow-b flex flex-col gap-4 shadow-white/10">
           <CardTitle className="flex items-center justify-between">
             <div className="text-xl font-medium">Collab</div>
           </CardTitle>
@@ -50,9 +94,8 @@ export default function RoomsSection({ user }: { user: UserRecord }) {
                 placeholder="Search rooms"
                 className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
-              <button className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background text-base leading-none text-muted-foreground transition-colors hover:bg-muted">
-                +
-              </button>
+              <Separator orientation="vertical" decorative />
+              <DialogCreateRoom creatorId={user.id} />
             </div>
           </CardDescription>
         </CardHeader>
@@ -60,12 +103,9 @@ export default function RoomsSection({ user }: { user: UserRecord }) {
         <CardContent className="min-h-0 flex-1 p-0">
           <ScrollArea className="h-full">
             <div className="px-4 py-2 sm:px-6">
-              {tags.map((tag) => (
-                <Fragment key={tag}>
-                  <ListItems
-                    username="user"
-                    avatar="https://github.com/shadcn.png"
-                  />
+              {rooms.map((room) => (
+                <Fragment key={room.id}>
+                  <ListItems room={room} isActive={activeRoom === room.id} />
                   <Separator className="my-2" />
                 </Fragment>
               ))}
@@ -79,7 +119,7 @@ export default function RoomsSection({ user }: { user: UserRecord }) {
               src={user.avatarUrl ? user.avatarUrl : undefined}
               alt={user.username}
             />
-            <AvatarFallback>{user.username}</AvatarFallback>
+            <AvatarFallback>{user.username[0]}</AvatarFallback>
             <AvatarBadge className="right-0.5 bottom-0.5 h-2.5 w-2.5 border-[1.5px] border-background bg-green-500" />
           </Avatar>
           <span>{user.username}</span>
@@ -90,23 +130,35 @@ export default function RoomsSection({ user }: { user: UserRecord }) {
 }
 
 function ListItems({
-  username,
-  avatar,
+  room,
+  isActive,
 }: {
-  username: string
-  avatar?: string
+  room: RoomRecord
+  isActive: boolean
 }) {
+  const setActiveRoom = useAppStore((state) => state.setActiveRoom)
+
+  const onClick = (roomId: string) => {
+    setActiveRoom(roomId)
+  }
+
   return (
-    <div className="flex items-center justify-between bg-card px-3 py-2">
+    <div
+      onClick={() => onClick(room.id)}
+      className={`flex items-center justify-between rounded-md px-3 py-2 transition-colors bg-card hover:bg-muted/50`}
+    >
       <div className="flex items-center gap-2">
         <Avatar className="h-7 w-7 border border-border">
-          <AvatarImage src={avatar} alt={username} className="h-8" />
-          <AvatarFallback>{username[0]}</AvatarFallback>
-          {isActiveRoom && (
+          <AvatarImage
+            src={room.creator?.avatarUrl ?? undefined}
+            alt={room.name}
+          />
+          <AvatarFallback>{room.name[0]}</AvatarFallback>
+          {isActive && (
             <AvatarBadge className="right-0 bottom-0 h-2 w-2 border-[1.5px] border-background bg-green-500" />
           )}
         </Avatar>
-        <span className="text-sm">{username}</span>
+        <span className="text-sm">{room.name}</span>
       </div>
       <div className="flex gap-2">
         {isPinned && <IconPinned />}
@@ -118,5 +170,94 @@ function ListItems({
         )}
       </div>
     </div>
+  )
+}
+
+function DialogCreateRoom({ creatorId }: { creatorId: string }) {
+  const { setActiveRoom, upsertRoom } = useAppStore(
+    useShallow((state) => ({
+      setActiveRoom: state.setActiveRoom,
+      upsertRoom: state.upsertRoom,
+    }))
+  )
+
+  const defaultCreateRoomValues: CreateRoomFormInput = {
+    name: "",
+    description: "",
+    isPrivate: "false",
+  }
+
+  const roomFields: FieldConfig<CreateRoomFormInput>[] = [
+    {
+      name: "name",
+      label: "Room Name",
+      placeholder: "my room",
+      autoComplete: "off",
+    },
+    {
+      name: "description",
+      label: "Description",
+      placeholder: "We all are a big family here",
+      autoComplete: "off",
+    },
+    {
+      name: "isPrivate",
+      label: "Room Visibility",
+      fieldType: "radio",
+      options: [
+        { label: "Public", value: "false" },
+        { label: "Private", value: "true" },
+      ],
+    },
+  ]
+
+  async function createRoom(data: CreateRoomFormInput) {
+    try {
+      const payload: CreateRoomInput = {
+        ...data,
+        creatorId,
+        isPrivate: data.isPrivate === "true",
+      }
+      const res = await axios.post(roomsApiUrl, payload)
+      const room = res.data.data.room as RoomRecord
+
+      upsertRoom(room)
+      setActiveRoom(room.id)
+      toast.success("Room created", toastOptions)
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? (error.response?.data?.message ?? "Something went wrong")
+        : "Something went wrong"
+
+      toast.error(message, toastOptions)
+    }
+  }
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border/60 bg-background text-base leading-none text-muted-foreground transition-colors hover:bg-muted">
+          +
+        </Button>
+      </DialogTrigger>
+
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-2xl">Create New Room</DialogTitle>
+        </DialogHeader>
+
+        <AppForm
+          formId="create-room-form"
+          schema={createRoomFormSchema}
+          defaultValues={defaultCreateRoomValues}
+          fields={roomFields}
+          onSubmit={async (data) => {
+            await createRoom(data)
+          }}
+          submitLabel="Create room"
+          pendingLabel="Creating room..."
+        />
+      </DialogContent>
+    </Dialog>
   )
 }

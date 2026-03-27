@@ -1,7 +1,8 @@
 "use client"
 
-import { useRouter, useParams } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useParams } from "next/navigation"
+import { useEffect, useSyncExternalStore } from "react"
+import useAppStore from "@/stores/app-store"
 import ChatSection from "./chatSection"
 import RoomsSection from "./roomsSection"
 import {
@@ -9,61 +10,60 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
-import axios from "axios"
-import { UserRecord } from "@repo/validation"
 import { wsClient } from "@/ws"
+import { useHydrate } from "@/hooks/useHydrate"
+
+const largeScreenQuery = "(min-width: 1024px)"
+
+function subscribeToLargeScreen(callback: () => void) {
+  const mediaQuery = window.matchMedia(largeScreenQuery)
+  mediaQuery.addEventListener("change", callback)
+
+  return () => mediaQuery.removeEventListener("change", callback)
+}
+
+function getLargeScreenSnapshot() {
+  return window.matchMedia(largeScreenQuery).matches
+}
 
 export default function HomePage() {
-  const userArvUrl = process.env.NEXT_PUBLIC_USER_SRV_URL
-  const router = useRouter()
   const { userid } = useParams<{ userid: string }>()
+  const { hasHydrated, fetch, user, rooms } = useHydrate(userid)
+  const activeRoomId = useAppStore((state) => state.activeRoom)
+  const isCurrentUser = user?.id === userid
+  const visibleRooms = isCurrentUser ? rooms : []
 
-  const [user, setUser] = useState<UserRecord | null>(null)
-  const [isLg, setIsLg] = useState(false)
+  const isLg = useSyncExternalStore(
+    subscribeToLargeScreen,
+    getLargeScreenSnapshot,
+    () => false
+  )
 
+  const activeRoom =
+    visibleRooms.find((room) => room.id === activeRoomId) ?? null
+
+  // Hydrate
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)")
-    setIsLg(mq.matches)
-    const handler = (e: MediaQueryListEvent) => setIsLg(e.matches)
-    mq.addEventListener("change", handler)
-    return () => mq.removeEventListener("change", handler)
-  }, [])
+    if (!hasHydrated) return // wait for persist
 
-  const getUser = async () => {
-    try {
-      const res = await axios.get(`${userArvUrl}?id=${userid}`)
-      setUser(res.data.data.user as UserRecord)
-    } catch (error) {
-      router.push("/auth")
-    }
-  }
+    void fetch()
+  }, [fetch, hasHydrated])
 
-  const getRoom = async () => {
-    try {
-      const res = await axios.get(`${userArvUrl}?id=${userid}`)
-      setUser(res.data.data.user as UserRecord)
-    } catch (error) {}
-  }
-
+  // Connect Ws
   useEffect(() => {
-    if (!userid) return
-    ;(async () => await getUser())()
-  }, [userid])
-
-  useEffect(() => {
-    if (!user) return
+    if (!isCurrentUser || !user?.id) return
     wsClient.connect(user)
     return () => wsClient.close()
-  }, [user?.id])
+  }, [isCurrentUser, user])
 
   return (
     <div className="h-svh w-full">
       <ResizablePanelGroup className="h-full w-full rounded-lg">
-        {isLg && (
+        {(isLg || !activeRoom) && (
           <>
             <ResizablePanel defaultSize={30} minSize={20}>
               <div className="h-full overflow-auto">
-                {user && <RoomsSection user={user} />}
+                {isCurrentUser && <RoomsSection />}
               </div>
             </ResizablePanel>
             <ResizableHandle withHandle />
@@ -72,7 +72,7 @@ export default function HomePage() {
 
         <ResizablePanel defaultSize={70} minSize={40}>
           <div className="h-full overflow-auto">
-            {/* <ChatSection userId={userid} room={}/> */}
+            <ChatSection room={activeRoom} />
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

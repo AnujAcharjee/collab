@@ -8,8 +8,9 @@ import { UserRecord, WsMessage } from "@repo/validation"
 import axios from "axios"
 import { handlers } from "./handlers"
 
-const wsUrl: string = process.env.NEXT_PUBLIC_CHAT_WS_URL!
-const userArvUrl: string = process.env.NEXT_PUBLIC_USER_SRV_URL!
+const wsUrl: string = process.env.NEXT_PUBLIC_WS_SRV_URL!
+const httpSrvUrl: string = process.env.NEXT_PUBLIC_HHTP_SRV_URL!
+const usersApiUrl = `${httpSrvUrl}/api/v1/users`
 
 class Ws {
   #ws: WebSocket | null = null
@@ -55,14 +56,14 @@ class Ws {
     // get ws ticket
     let ticket: string | null = null
     try {
-      const res = await axios.post(`${userArvUrl}/ws-ticket`, {
+      const res = await axios.post(`${usersApiUrl}/ws-ticket`, {
         id: user.id,
         username: user.username,
         email: user.email,
       })
 
       ticket = res.data.ticket
-    } catch (error) {
+    } catch {
       console.error("WS ticket fetch failed")
       this.#reconnect(user)
       return
