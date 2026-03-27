@@ -6,6 +6,7 @@ import { logger } from './logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { chatRouter } from './routes/chat.js';
 import { healthRouter } from './routes/health.js';
+import { loggingMiddleware } from './middleware/loggingMiddleware.js';
 
 const PORT = process.env.PORT ?? 3001;
 
@@ -14,8 +15,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use(loggingMiddleware);
+
 app.use(healthRouter);
-app.use(chatRouter);
+app.use('/api/v1/chat', chatRouter);
 
 app.use(errorHandler);
 
