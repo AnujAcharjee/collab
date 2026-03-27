@@ -109,6 +109,10 @@ export const getUserSchema = z
 
 export type GetUserRequest = z.infer<typeof getUserSchema>;
 
+export const hydrateUserSchema = getUserSchema;
+
+export type HydrateUserRequest = GetUserRequest;
+
 export const issueTicketSchema = z.object({
   body: z.object({
     id: uuidSchema('user id must be a valid UUID'),

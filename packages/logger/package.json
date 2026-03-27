@@ -17,6 +17,7 @@
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "pino-pretty": "^13.1.3"
   },

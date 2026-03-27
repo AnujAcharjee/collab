@@ -3,6 +3,8 @@ import { logger } from '../logger.js';
 import { AppError } from '../utils/appError.js';
 
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
+  void _req;
+  void _next;
   logger.error({ error }, 'Unhandled error occurred');
 
   const message = error instanceof Error ? error.message : 'Internal Server Error';

@@ -8,14 +8,16 @@ import {
 } from '@repo/validation';
 import { AppWebSocket } from './types/wss.js';
 
-const config: RedisConfig = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: Number(process.env.REDIS_PORT) || 6379,
-  username: process.env.REDIS_USERNAME,
-  password: process.env.REDIS_PASSWORD,
-  db: Number(process.env.REDIS_DB) || 0,
-  tls: process.env.REDIS_TLS === 'true',
-};
+const url = process.env.REDIS_URL!;
+
+// const config: RedisConfig = {
+//   host: process.env.REDIS_HOST || 'localhost',
+//   port: Number(process.env.REDIS_PORT) || 6379,
+//   username: process.env.REDIS_USERNAME,
+//   password: process.env.REDIS_PASSWORD,
+//   db: Number(process.env.REDIS_DB) || 0,
+//   tls: process.env.REDIS_TLS === 'true',
+// };
 
 const eventHandlers: RedisEventHandlers = {
   onConnect: () => {
@@ -32,8 +34,8 @@ const eventHandlers: RedisEventHandlers = {
   },
 };
 
-export const redis: RedisClient = createRedisClient(config, eventHandlers);
-export const redisSub: RedisClient = createRedisClient(config, eventHandlers);
+export const redis: RedisClient = createRedisClient(url, eventHandlers);
+export const redisSub: RedisClient = createRedisClient(url, eventHandlers);
 
 export const initConsumer = async (channel: string, wss: WebSocketServer): Promise<void> => {
   /**
@@ -62,7 +64,7 @@ export const initConsumer = async (channel: string, wss: WebSocketServer): Promi
       .map((receiverId: string) =>
         [...wss.clients].find((client): client is AppWebSocket => (client as AppWebSocket).user.id === receiverId),
       )
-      .filter((client: AppWebSocket): client is AppWebSocket => client !== undefined);
+      .filter((client: AppWebSocket | undefined): client is AppWebSocket => client !== undefined);
 
     logger.debug({ clients: clients.length }, 'Number of clients to receive the message');
 

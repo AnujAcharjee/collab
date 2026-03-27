@@ -8,8 +8,12 @@ import type {
   DeleteUserResponse,
   EditUserRequest,
   GetUserRequest,
+  HydrateUserResponse,
   User,
 } from '@repo/proto';
+import { roomInclude, toProtoRoom } from './chatRoom.js';
+
+type UserLookup = { id: string } | { email: string } | { username: string };
 
 function toProtoUser(user: {
   id: string;
@@ -42,6 +46,22 @@ function nullableStringUpdate(value: string | undefined): string | null | undefi
 
 function isPrismaError(err: unknown): err is { code: string } {
   return typeof err === 'object' && err !== null && 'code' in err && typeof err.code === 'string';
+}
+
+function resolveUserLookup(request: GetUserRequest): UserLookup | null {
+  if (request.id !== undefined) {
+    return { id: request.id };
+  }
+
+  if (request.email !== undefined) {
+    return { email: request.email.toLowerCase() };
+  }
+
+  if (request.username !== undefined) {
+    return { username: request.username };
+  }
+
+  return null;
 }
 
 export const user = {
@@ -174,11 +194,7 @@ export const user = {
 
   getUser: async (call: ServerUnaryCall<GetUserRequest, User>, callback: sendUnaryData<User>) => {
     try {
-      const lookup =
-        call.request.id !== undefined ? { id: call.request.id }
-        : call.request.email !== undefined ? { email: call.request.email.toLowerCase() }
-        : call.request.username !== undefined ? { username: call.request.username }
-        : null;
+      const lookup = resolveUserLookup(call.request);
 
       if (!lookup) {
         return callback({
@@ -201,6 +217,53 @@ export const user = {
       callback(null, toProtoUser(foundUser));
     } catch (err) {
       logger.error(err, 'GetUser failed');
+      callback({ code: status.INTERNAL, message: 'Internal server error' });
+    }
+  },
+
+  hydrateUser: async (
+    call: ServerUnaryCall<GetUserRequest, HydrateUserResponse>,
+    callback: sendUnaryData<HydrateUserResponse>,
+  ) => {
+    try {
+      const lookup = resolveUserLookup(call.request);
+
+      if (!lookup) {
+        return callback({
+          code: status.INVALID_ARGUMENT,
+          message: 'Provide one of id, email, or username',
+        });
+      }
+
+      const foundUser = await prisma.user.findFirst({
+        where: lookup,
+      });
+
+      if (!foundUser) {
+        return callback({
+          code: status.NOT_FOUND,
+          message: 'User not found',
+        });
+      }
+
+      const rooms = await prisma.chatRoom.findMany({
+        where: {
+          chatRoomMembers: {
+            some: {
+              userId: foundUser.id,
+            },
+          },
+        },
+        include: roomInclude,
+        orderBy: { createdAt: 'asc' },
+      });
+
+      callback(null, {
+        user: toProtoUser(foundUser),
+        rooms: rooms.map(toProtoRoom),
+      });
+    } catch (err) {
+      logger.error(err, 'HydrateUser failed');
       callback({ code: status.INTERNAL, message: 'Internal server error' });
     }
   },

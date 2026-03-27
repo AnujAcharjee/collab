@@ -1,14 +1,16 @@
 import { createRedisClient, type RedisClient, type RedisConfig, type RedisEventHandlers } from '@repo/redis';
 import { logger } from './logger.js';
 
-const config: RedisConfig = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: Number(process.env.REDIS_PORT) || 6379,
-  username: process.env.REDIS_USERNAME,
-  password: process.env.REDIS_PASSWORD,
-  db: Number(process.env.REDIS_DB) || 0,
-  tls: process.env.REDIS_TLS === 'true',
-};
+const url = process.env.REDIS_URL!;
+
+// const config: RedisConfig = {
+//   host: process.env.REDIS_HOST || 'localhost',
+//   port: Number(process.env.REDIS_PORT) || 6379,
+//   username: process.env.REDIS_USERNAME,
+//   password: process.env.REDIS_PASSWORD,
+//   db: Number(process.env.REDIS_DB) || 0,
+//   tls: process.env.REDIS_TLS === 'true',
+// };
 
 const eventHandlers: RedisEventHandlers = {
   onConnect: () => {
@@ -25,4 +27,4 @@ const eventHandlers: RedisEventHandlers = {
   },
 };
 
-export const redis: RedisClient = createRedisClient(config, eventHandlers);
+export const redis: RedisClient = createRedisClient(url, eventHandlers);

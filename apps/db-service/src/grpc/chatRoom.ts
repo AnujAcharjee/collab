@@ -28,7 +28,7 @@ const roleMap: Record<PrismaRoomMemberRole, RoomMemberRole> = {
   [PrismaRoomMemberRole.OWNER]: RoomMemberRole.OWNER,
 };
 
-const roomInclude = {
+export const roomInclude = {
   creator: true,
   chatRoomMembers: {
     orderBy: { createdAt: 'asc' },
@@ -132,7 +132,7 @@ function toProtoRoomMember(member: {
   };
 }
 
-function toProtoRoom(room: {
+export function toProtoRoom(room: {
   id: string;
   name: string;
   description: string | null;

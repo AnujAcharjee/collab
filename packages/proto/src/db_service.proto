@@ -78,6 +78,7 @@ service Db {
   rpc EditUser(EditUserRequest) returns (User);
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
   rpc GetUser(GetUserRequest) returns (User);
+  rpc HydrateUser(GetUserRequest) returns (HydrateUserResponse);
 }
 
 // ------ Room RPCs ------
@@ -230,4 +231,9 @@ message GetUserRequest {
   google.protobuf.StringValue id = 1;
   google.protobuf.StringValue email = 2;
   google.protobuf.StringValue username = 3;
+}
+
+message HydrateUserResponse {
+  User user = 1;
+  repeated ChatRoom rooms = 2;
 }

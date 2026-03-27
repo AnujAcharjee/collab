@@ -1,25 +1,27 @@
 import { Redis, type RedisOptions } from 'ioredis';
 import { RedisConfig, RedisEventHandlers } from './types.js';
 
-export function createRedisClient(config: RedisConfig, handlers?: RedisEventHandlers) {
-  const { host, port, username, password, db = 0, tls = false } = config;
+export function createRedisClient(url: string, handlers?: RedisEventHandlers) {
+  // const { host, port, username, password, db = 0, tls = false } = config;
 
-  if (!host) throw new Error('Redis host is required');
-  if (!port) throw new Error('Redis port is required');
+  // if (!host) throw new Error('Redis host is required');
+  // if (!port) throw new Error('Redis port is required');
 
-  const options: RedisOptions = {
-    host,
-    port,
-    username,
-    password,
-    db,
-    tls: tls ? {} : undefined,
-    maxRetriesPerRequest: 3,
-    enableReadyCheck: true,
-    connectTimeout: 10000,
-  };
+  // const options: RedisOptions = {
+  //   host,
+  //   port,
+  //   username,
+  //   password,
+  //   db,
+  //   tls: tls ? {} : undefined,
+  //   maxRetriesPerRequest: 3,
+  //   enableReadyCheck: true,
+  //   connectTimeout: 10000,
+  // };
 
-  const redis = new Redis(options);
+  // const redis = new Redis(options);
+
+  const redis = new Redis(url);
 
   redis.on('connect', () => handlers?.onConnect?.());
   redis.on('ready', () => handlers?.onReady?.());

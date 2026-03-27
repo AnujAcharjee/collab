@@ -4,12 +4,14 @@ import {
   deleteUserSchema,
   editUserSchema,
   getUserSchema,
+  hydrateUserSchema,
   issueTicketSchema,
 } from '@repo/validation';
 import { createUser } from '../controllers/user/createUser.js';
 import { deleteUser } from '../controllers/user/deleteUser.js';
 import { editUser } from '../controllers/user/editUser.js';
 import { getUser } from '../controllers/user/getUser.js';
+import { hydrateUser } from '../controllers/user/hydrateUser.js';
 import { issueTicket } from '../controllers/user/issueTicket.js';
 import { validateRequest } from '../middleware/validation.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -17,6 +19,8 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 export const userRouter: Router = Router();
 
 userRouter.post('/', validateRequest(createUserSchema), asyncHandler(createUser));
+userRouter.get('/hydrate', validateRequest(hydrateUserSchema), asyncHandler(hydrateUser));
+userRouter.get('/hydrate/:id', validateRequest(hydrateUserSchema), asyncHandler(hydrateUser));
 userRouter.get('/', validateRequest(getUserSchema), asyncHandler(getUser));
 userRouter.get('/:id', validateRequest(getUserSchema), asyncHandler(getUser));
 userRouter.patch('/:id', validateRequest(editUserSchema), asyncHandler(editUser));
