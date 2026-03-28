@@ -7,7 +7,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
   CardFooter,
 } from "@/components/ui/card"
 import {
@@ -22,44 +21,30 @@ import {
   IconMoodSmile,
   IconMicrophone,
   IconChevronLeft,
-  IconDotsVertical,
+  IconMessageReply,
+  IconPinned,
+  IconTrash,
+  IconX,
 } from "@tabler/icons-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { toast } from "sonner"
 import type { CreateMessageInput, RoomRecord } from "@repo/validation"
-import { chatApiUrl } from "@/constants/apiUrls"
 import axios from "axios"
 import type { RoomMessage } from "@/stores/app-store"
+import { useMessage, type ChatHistoryMessage } from "@/hooks/useMessage"
 
-type ChatHistoryMessage = {
+type MessageBubbleParent = {
   id: string
-  type: string
-  userId: string
-  roomId: string
-  text?: string
-  attachments?: string
-  parentId?: string
-  isDeleted: boolean
-  modifiedAt?: string
-  createdAt: string
-  updatedAt: string
-  senderUsername: string
-  senderAvatarUrl?: string
-}
-
-type ChatHistoryResponse = {
-  data?: {
-    roomId?: string
-    messages?: ChatHistoryMessage[]
-  }
-}
-
-type CreateMessageResponse = {
-  data?: {
-    message?: ChatHistoryMessage
-  }
-  error?: string
+  username: string
   message?: string
+  isDeleted?: boolean
 }
 
 const toastOptions = {
@@ -74,8 +59,15 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
   const user = useAppStore((state) => state.user)
   const addMessage = useAppStore((state) => state.addMessage)
   const setMessages = useAppStore((state) => state.setMessages)
+  const {
+    createMessage: createMessageRequest,
+    deleteMessage: deleteMessageRequest,
+    fetchMessages,
+  } = useMessage()
   const roomMessages = useAppStore((state) =>
-    roomId ? (state.messages[roomId] ?? EMPTY_ROOM_MESSAGES) : EMPTY_ROOM_MESSAGES
+    roomId
+      ? (state.messages[roomId] ?? EMPTY_ROOM_MESSAGES)
+      : EMPTY_ROOM_MESSAGES
   )
   const updateRoomLastMessage = useAppStore(
     (state) => state.updateRoomLastMessage
@@ -84,11 +76,45 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
   const [draft, setDraft] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<RoomMessage | null>(null)
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(
+    null
+  )
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const roomMessagesById = new Map(
+    roomMessages.map((message) => [message.id, message])
+  )
+
+  function getMessageAuthorName(message: RoomMessage) {
+    return message.sender === user?.id
+      ? (user?.username ?? "You")
+      : (message.senderUsername ?? room?.creator?.username ?? "Room member")
+  }
+
+  function getMessageAuthorAvatar(message: RoomMessage) {
+    return message.sender === user?.id
+      ? (user?.avatarUrl ?? undefined)
+      : (message.senderAvatarUrl ?? room?.creator?.avatarUrl ?? undefined)
+  }
+
+  function getMessageBody(
+    message?: Pick<RoomMessage, "text" | "isDeleted"> | null
+  ) {
+    if (!message) {
+      return "Original message unavailable"
+    }
+
+    if (message.isDeleted) {
+      return "Message deleted"
+    }
+
+    return message.text?.trim() ? message.text : "Attachment"
+  }
 
   useEffect(() => {
     if (!roomId) {
       setDraft("")
+      setReplyingTo(null)
       return
     }
 
@@ -98,21 +124,16 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
       setIsLoading(true)
 
       try {
-        const res = await axios.get<ChatHistoryResponse>(
-          `${chatApiUrl}/rooms/${roomId}/messages`
-        )
+        const messages = (await fetchMessages(roomId)).map(toRoomMessage)
 
         if (isCancelled) {
           return
         }
 
-        setMessages(
-          roomId,
-          (res.data.data?.messages ?? []).map(toRoomMessage)
-        )
+        setMessages(roomId, messages)
       } catch (error) {
         if (!isCancelled) {
-          const message = axios.isAxiosError<CreateMessageResponse>(error)
+          const message = axios.isAxiosError(error)
             ? (error.response?.data?.error ??
               error.response?.data?.message ??
               "Unable to load messages")
@@ -132,11 +153,20 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
     return () => {
       isCancelled = true
     }
-  }, [roomId, setMessages])
+  }, [fetchMessages, roomId, setMessages])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
   }, [roomId, roomMessages])
+
+  useEffect(() => {
+    if (
+      replyingTo &&
+      !roomMessages.some((message) => message.id === replyingTo.id)
+    ) {
+      setReplyingTo(null)
+    }
+  }, [replyingTo, roomMessages])
 
   if (!room) {
     return (
@@ -166,23 +196,17 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
         sender: user.id,
         roomId: activeRoom.id,
         text,
+        parentId: replyingTo?.id,
       }
 
-      const res = await axios.post<CreateMessageResponse>(
-        `${chatApiUrl}/messages`,
-        payload
-      )
-      const message = res.data.data?.message
-
-      if (!message) {
-        throw new Error("Message was not returned")
-      }
+      const message = await createMessageRequest(payload)
 
       addMessage(activeRoom.id, toRoomMessage(message))
       setDraft("")
+      setReplyingTo(null)
       updateRoomLastMessage(activeRoom.id, toRoomPreviewMessage(message))
     } catch (error) {
-      const message = axios.isAxiosError<CreateMessageResponse>(error)
+      const message = axios.isAxiosError(error)
         ? (error.response?.data?.error ??
           error.response?.data?.message ??
           "Unable to send message")
@@ -194,29 +218,75 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
     }
   }
 
+  async function handleDeleteMessage(messageId: string) {
+    if (!roomId || deletingMessageId) {
+      return
+    }
+
+    setDeletingMessageId(messageId)
+
+    try {
+      await deleteMessageRequest(messageId)
+      const refreshedMessages = (await fetchMessages(roomId)).map(toRoomMessage)
+
+      setMessages(roomId, refreshedMessages)
+
+      const lastMessage = refreshedMessages[refreshedMessages.length - 1]
+
+      if (lastMessage) {
+        updateRoomLastMessage(roomId, lastMessage)
+      }
+
+      if (replyingTo?.id === messageId) {
+        setReplyingTo(null)
+      }
+
+      toast.success("Message deleted", toastOptions)
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? (error.response?.data?.error ??
+          error.response?.data?.message ??
+          "Unable to delete message")
+        : "Unable to delete message"
+
+      toast.error(message, toastOptions)
+    } finally {
+      setDeletingMessageId(null)
+    }
+  }
+
   return (
     <div className="h-svh w-full p-2 lg:p-4">
-      <Card className="flex h-full w-full flex-col p-0 border border-primary/50">
-        <CardHeader className="shrink-0 p-3 bg-white/5">
-          <CardTitle className="flex items-center justify-between gap-2 text-xs sm:text-sm lg:gap-5">
+      <Card className="flex h-full w-full flex-col gap-0 border border-primary/50 p-0">
+        <CardHeader className="flex items-center gap-2 border-b border-white/10 bg-white/5 px-2 pt-4 backdrop-blur-sm">
             <button
               type="button"
               onClick={() => setActiveRoom(null)}
-              className="rounded-md bg-white/8 p-1 hover:cursor-pointer hover:bg-white/15"
+              className="group flex items-center justify-center rounded-lg p-1.5 text-white/50 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-95"
+              aria-label="Go back"
             >
-              <IconChevronLeft stroke={2} height={20} width={20} />
+              <IconChevronLeft
+                stroke={2}
+                height={18}
+                width={18}
+                className="transition-transform duration-150 group-hover:-translate-x-0.5"
+              />
             </button>
-            <div className="w-full rounded-md border bg-white/8 px-4 py-1 text-center hover:cursor-pointer hover:bg-white/15">
+
+            <Avatar className="h-9 w-9 shrink-0 border border-border">
+              <AvatarImage src={room?.name} alt={room?.name} />
+              <AvatarFallback className="text-xs">
+                {room.name[0]}
+              </AvatarFallback>
+            </Avatar>
+
+            <span className="text-md flex-1 truncate tracking-wide text-white/90">
               {room.name}
-            </div>
-            <div className="rounded-md bg-white/8 p-1 hover:cursor-pointer hover:bg-white/15">
-              <IconDotsVertical stroke={2} height={20} width={20} />
-            </div>
-          </CardTitle>
+            </span>
         </CardHeader>
 
-        <CardContent className="min-h-0 flex-1 p-0 shadow-inner">
-          <ScrollArea className="h-full">
+        <CardContent className="min-h-0 flex-1 px-0 sm:px-2 py-0 shadow-inner">
+          <ScrollArea className="h-full p-0">
             <div className="space-y-3 px-4 py-3 sm:px-6">
               {isLoading && (
                 <div className="text-center text-sm text-muted-foreground">
@@ -232,27 +302,43 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
 
               {roomMessages.map((message) => {
                 const isOwn = message.sender === user?.id
-                const username = isOwn
-                  ? (user?.username ?? "You")
-                  : (message.senderUsername ??
-                    room.creator?.username ??
-                    "Room member")
-                const avatar = isOwn
-                  ? (user?.avatarUrl ?? undefined)
-                  : (message.senderAvatarUrl ??
-                    room.creator?.avatarUrl ??
-                    undefined)
+                const username = getMessageAuthorName(message)
+                const avatar = getMessageAuthorAvatar(message)
+                const parentMessage = message.parentId
+                  ? roomMessagesById.get(message.parentId)
+                  : undefined
+                const parentUsername = parentMessage
+                  ? getMessageAuthorName(parentMessage)
+                  : undefined
 
                 return (
                   <MessageBubble
                     key={message.id}
                     username={username}
                     avatar={avatar}
+                    parentId={message.parentId}
+                    parentMessage={
+                      message.parentId
+                        ? {
+                            id: parentMessage?.id ?? message.parentId,
+                            username: parentUsername ?? "Original message",
+                            message: parentMessage?.text,
+                            isDeleted: parentMessage?.isDeleted,
+                          }
+                        : undefined
+                    }
                     message={
                       message.isDeleted ? "Message deleted" : message.text
                     }
                     timestamp={formatMessageTime(message.createdAt)}
                     isOwn={isOwn}
+                    canDelete={
+                      isOwn &&
+                      !message.isDeleted &&
+                      deletingMessageId !== message.id
+                    }
+                    onReply={() => setReplyingTo(message)}
+                    onDelete={() => void handleDeleteMessage(message.id)}
                   />
                 )
               })}
@@ -262,49 +348,72 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
           </ScrollArea>
         </CardContent>
 
-        <CardFooter className="flex gap-2 pb-5">
+        <CardFooter className="flex gap-2 pt-2 pb-5">
           <form
-            className="flex w-full gap-2"
+            className="flex w-full items-end gap-2"
             onSubmit={(event) => {
               event.preventDefault()
               void sendMessage()
             }}
           >
-            <InputGroup className="h-10 w-full border border-primary/50">
-              <InputGroupInput
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder={`Message ${activeRoom.name}`}
-                disabled={!user || isSending}
-              />
+            <div className="flex flex-1 flex-col gap-2">
+              {replyingTo && (
+                <div className="flex items-start justify-between rounded-xl border border-primary/40 bg-white/8 px-3 py-2">
+                  <div className="min-w-0 border-l-2 border-primary/70 pl-3">
+                    <div className="text-xs font-medium text-primary">
+                      Replying to {getMessageAuthorName(replyingTo)}
+                    </div>
+                    <div className="line-clamp-2 text-xs text-muted-foreground">
+                      {getMessageBody(replyingTo)}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReplyingTo(null)}
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+                    aria-label="Cancel reply"
+                  >
+                    <IconX size={16} />
+                  </button>
+                </div>
+              )}
 
-              <InputGroupAddon>
-                <IconPaperclip
-                  stroke={2}
-                  height={20}
-                  width={20}
-                  className="cursor-not-allowed text-white/30"
+              <InputGroup className="h-10 w-full border border-primary/50">
+                <InputGroupInput
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  placeholder={`Message ${activeRoom.name}`}
+                  disabled={!user || isSending}
                 />
-                <IconMoodSmile
-                  stroke={2}
-                  height={20}
-                  width={20}
-                  className="cursor-not-allowed text-white/30"
-                />
-              </InputGroupAddon>
 
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  type="submit"
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={!user || !draft.trim() || isSending}
-                  className="text-white/50 hover:text-white"
-                >
-                  <IconBrandTelegram stroke={2} height={18} width={18} />
-                </InputGroupButton>
-              </InputGroupAddon>
-            </InputGroup>
+                <InputGroupAddon>
+                  <IconPaperclip
+                    stroke={2}
+                    height={20}
+                    width={20}
+                    className="cursor-not-allowed text-white/30"
+                  />
+                  <IconMoodSmile
+                    stroke={2}
+                    height={20}
+                    width={20}
+                    className="cursor-not-allowed text-white/30"
+                  />
+                </InputGroupAddon>
+
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    type="submit"
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={!user || !draft.trim() || isSending}
+                    className="text-white/50 hover:text-white"
+                  >
+                    <IconBrandTelegram stroke={2} height={18} width={18} />
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+            </div>
 
             <div className="rounded-full border border-border/50 bg-white/10 p-1.5">
               <IconMicrophone
@@ -324,49 +433,106 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
 function MessageBubble({
   username,
   avatar,
+  parentId,
+  parentMessage,
   message,
   timestamp,
   isOwn = false,
+  canDelete = false,
+  onReply,
+  onDelete,
 }: {
   username: string
   avatar?: string
+  parentId?: string
+  parentMessage?: MessageBubbleParent
   message?: string
   timestamp: string
   isOwn?: boolean
+  canDelete?: boolean
+  onReply: () => void
+  onDelete: () => void
 }) {
   const fallbackMessage = message?.trim() ? message : "Attachment"
+  const fallbackParentMessage = parentMessage?.isDeleted
+    ? "Message deleted"
+    : parentMessage?.message?.trim()
+      ? parentMessage.message
+      : parentId
+        ? "Original message unavailable"
+        : ""
 
   return (
-    <div className={`flex items-end gap-2 ${isOwn ? "flex-row-reverse" : ""}`}>
-      <Avatar className="h-7 w-7 shrink-0 border border-border">
-        <AvatarImage src={avatar} alt={username} />
-        <AvatarFallback className="text-xs">{username[0]}</AvatarFallback>
-      </Avatar>
-
-      <div
-        className={`flex max-w-[70%] flex-col gap-1 ${isOwn ? "items-end" : "items-start"}`}
-      >
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
         <div
-          className={`rounded-[18px] px-3.5 py-2 text-xs leading-relaxed text-white sm:text-sm ${
-            isOwn
-              ? "rounded-br-4 bg-[#1d9bf0]"
-              : "rounded-bl-4 bg-muted text-foreground"
-          }`}
+          className={`flex items-end gap-2 ${isOwn ? "flex-row-reverse" : ""}`}
         >
-          {fallbackMessage}
+          <Avatar className="h-7 w-7 shrink-0 border border-border">
+            <AvatarImage src={avatar} alt={username} />
+            <AvatarFallback className="text-xs">{username[0]}</AvatarFallback>
+          </Avatar>
+
+          <div
+            className={`flex max-w-[70%] flex-col gap-1 ${isOwn ? "items-end" : "items-start"}`}
+          >
+            <div
+              className={`rounded-[18px] px-3.5 py-2 text-xs leading-relaxed text-white sm:text-sm ${
+                isOwn
+                  ? "rounded-br-4 bg-[#1d9bf0]"
+                  : "rounded-bl-4 bg-muted text-foreground"
+              }`}
+            >
+              {parentId && parentMessage && (
+                <div
+                  className={`mb-2 rounded-2xl border-l-2 px-3 py-2 text-[11px] sm:text-xs ${
+                    isOwn
+                      ? "border-white/70 bg-white/15 text-white/90"
+                      : "border-primary/60 bg-background/70 text-muted-foreground"
+                  }`}
+                >
+                  <div className="font-medium">{parentMessage.username}</div>
+                  <div className="line-clamp-2 break-words">
+                    {fallbackParentMessage}
+                  </div>
+                </div>
+              )}
+              {fallbackMessage}
+            </div>
+            <div>
+              {!isOwn && (
+                <span className="px-1 text-[11px] text-muted-foreground">
+                  {username}
+                </span>
+              )}
+              <span className="px-1 text-[10px] text-muted-foreground">
+                {timestamp}
+              </span>
+            </div>
+          </div>
         </div>
-        <div>
-          {!isOwn && (
-            <span className="px-1 text-[11px] text-muted-foreground">
-              {username}
-            </span>
-          )}
-          <span className="px-1 text-[10px] text-muted-foreground">
-            {timestamp}
-          </span>
-        </div>
-      </div>
-    </div>
+      </ContextMenuTrigger>
+
+      <ContextMenuContent className="w-44">
+        <ContextMenuItem onSelect={onReply}>
+          <IconMessageReply />
+          Reply
+        </ContextMenuItem>
+        <ContextMenuItem
+          onSelect={onDelete}
+          disabled={!canDelete}
+          className="text-destructive focus:text-destructive"
+        >
+          <IconTrash />
+          Delete
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem disabled={true}>
+          <IconPinned />
+          Pin
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 

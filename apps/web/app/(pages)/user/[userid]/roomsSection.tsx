@@ -1,6 +1,6 @@
 "use client"
 
-import type { CSSProperties } from "react"
+import { useState, type CSSProperties } from "react"
 import { Fragment } from "react/jsx-runtime"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -35,8 +35,8 @@ import { useShallow } from "zustand/react/shallow"
 import { type CreateRoomInput, createRoomSchema } from "@repo/validation"
 import type { RoomRecord } from "@repo/validation"
 import useAppStore from "@/stores/app-store"
-import { roomsApiUrl } from "@/constants/apiUrls"
 import axios from "axios"
+import { useRooms } from "@/hooks/useRooms"
 
 const isPinned = true
 const isMuted = true
@@ -180,6 +180,9 @@ function DialogCreateRoom({ creatorId }: { creatorId: string }) {
       upsertRoom: state.upsertRoom,
     }))
   )
+  const { createRoom: createRoomRequest } = useRooms()
+  const [open, setOpen] = useState(false)
+  const [formKey, setFormKey] = useState(0)
 
   const defaultCreateRoomValues: CreateRoomFormInput = {
     name: "",
@@ -218,11 +221,12 @@ function DialogCreateRoom({ creatorId }: { creatorId: string }) {
         creatorId,
         isPrivate: data.isPrivate === "true",
       }
-      const res = await axios.post(roomsApiUrl, payload)
-      const room = res.data.data.room as RoomRecord
+      const room = await createRoomRequest(payload)
 
       upsertRoom(room)
       setActiveRoom(room.id)
+      setFormKey((currentKey) => currentKey + 1)
+      setOpen(false)
       toast.success("Room created", toastOptions)
     } catch (error) {
       const message = axios.isAxiosError(error)
@@ -234,7 +238,7 @@ function DialogCreateRoom({ creatorId }: { creatorId: string }) {
   }
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border/80 bg-background text-base leading-none text-muted-foreground transition-colors hover:bg-muted">
           +
@@ -247,6 +251,7 @@ function DialogCreateRoom({ creatorId }: { creatorId: string }) {
         </DialogHeader>
 
         <AppForm
+          key={formKey}
           formId="create-room-form"
           schema={createRoomFormSchema}
           defaultValues={defaultCreateRoomValues}

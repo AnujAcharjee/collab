@@ -15,6 +15,7 @@ import {
   FieldValues,
   Path,
 } from "react-hook-form"
+import { IconLoader } from "@tabler/icons-react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { ZodTypeAny } from "zod"
 
@@ -133,7 +134,14 @@ function AppForm<T extends FieldValues>({
           form={formId}
           className="w-full font-bold"
         >
-          {isPending ? pendingLabel : submitLabel}
+          {isPending ? (
+            <>
+              <IconLoader className="size-4 animate-spin" />
+              {pendingLabel}
+            </>
+          ) : (
+            submitLabel
+          )}
         </Button>
       </FieldGroup>
     </form>
