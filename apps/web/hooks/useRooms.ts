@@ -4,9 +4,13 @@ import { useCallback } from "react"
 import axios from "axios"
 
 import { roomsApiUrl } from "@/constants/apiUrls"
-import type { CreateRoomInput, RoomRecord } from "@repo/validation"
+import type {
+  CreateRoomInput,
+  EditRoomRequest,
+  RoomRecord,
+} from "@repo/validation"
 
-type CreateRoomResponse = {
+type RoomResponse = {
   data?: {
     room?: RoomRecord
   }
@@ -14,9 +18,17 @@ type CreateRoomResponse = {
   message?: string
 }
 
+type DeleteRoomResponse = {
+  data?: {
+    id?: string
+  }
+  error?: string
+  message?: string
+}
+
 export const useRooms = () => {
   const createRoom = useCallback(async (payload: CreateRoomInput) => {
-    const res = await axios.post<CreateRoomResponse>(roomsApiUrl, payload)
+    const res = await axios.post<RoomResponse>(roomsApiUrl, payload)
     const room = res.data.data?.room
 
     if (!room) {
@@ -26,7 +38,39 @@ export const useRooms = () => {
     return room
   }, [])
 
+  const updateRoom = useCallback(
+    async (roomId: string, payload: EditRoomRequest["body"]) => {
+      const res = await axios.patch<RoomResponse>(
+        `${roomsApiUrl}/${roomId}`,
+        payload
+      )
+      const room = res.data.data?.room
+
+      if (!room) {
+        throw new Error("Room was not returned")
+      }
+
+      return room
+    },
+    []
+  )
+
+  const deleteRoom = useCallback(async (roomId: string) => {
+    const res = await axios.delete<DeleteRoomResponse>(
+      `${roomsApiUrl}/${roomId}`
+    )
+    const deletedRoomId = res.data.data?.id
+
+    if (!deletedRoomId) {
+      throw new Error("Room was not returned")
+    }
+
+    return deletedRoomId
+  }, [])
+
   return {
     createRoom,
+    updateRoom,
+    deleteRoom,
   }
 }

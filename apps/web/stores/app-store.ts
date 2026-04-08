@@ -27,6 +27,7 @@ interface RoomsState {
   activeRoom: string | null
   setRooms: (rooms: RoomRecord[]) => void
   upsertRoom: (room: RoomRecord) => void
+  removeRoom: (roomId: string) => void
   updateRoomLastMessage: (roomId: string, message: ChatMessagePayload) => void
   updateRoomInfo: (roomId: string, data: Partial<RoomRecord>) => void
   setActiveRoom: (roomId: string | null) => void
@@ -36,6 +37,7 @@ interface MessagesState {
   messages: Record<string, RoomMessage[]>
   addMessage: (roomId: string, msg: RoomMessage) => void
   setMessages: (roomId: string, msgs: RoomMessage[]) => void
+  clearMessages: (roomId: string) => void
 }
 
 interface HydrationState {
@@ -121,6 +123,15 @@ const createRoomsSlice: StateCreator<AppState, [], [], RoomsState> = (set) => ({
         activeRoom: state.activeRoom ?? room.id,
       }
     }),
+  removeRoom: (roomId) =>
+    set((state) => {
+      const rooms = state.rooms.filter((room) => room.id !== roomId)
+
+      return {
+        rooms,
+        activeRoom: getNextActiveRoomId(rooms, state.activeRoom),
+      }
+    }),
 
   updateRoomLastMessage: (roomId, message) =>
     set((state) => ({
@@ -160,6 +171,15 @@ const createMessagesSlice: StateCreator<AppState, [], [], MessagesState> = (
         [roomId]: mergeRoomMessages(state.messages[roomId] ?? [], msgs),
       },
     })),
+
+  clearMessages: (roomId) =>
+    set((state) => {
+      const messages = { ...state.messages }
+
+      delete messages[roomId]
+
+      return { messages }
+    }),
 })
 
 const createHydrationSlice: StateCreator<AppState, [], [], HydrationState> = (

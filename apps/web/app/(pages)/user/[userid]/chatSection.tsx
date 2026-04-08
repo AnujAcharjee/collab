@@ -3,12 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import useAppStore from "@/stores/app-store"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardFooter,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card"
 import {
   InputGroup,
   InputGroupAddon,
@@ -16,11 +11,20 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
   IconBrandTelegram,
   IconPaperclip,
   IconMoodSmile,
   IconMicrophone,
   IconChevronLeft,
+  IconDotsVertical,
   IconMessageReply,
   IconPinned,
   IconTrash,
@@ -35,10 +39,19 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { toast } from "sonner"
-import type { CreateMessageInput, RoomRecord } from "@repo/validation"
+import AppForm, { type FieldConfig } from "@/components/AppForm"
+import { Button } from "@/components/ui/button"
+import { createRoomSchema } from "@repo/validation"
+import type {
+  CreateMessageInput,
+  EditRoomRequest,
+  RoomRecord,
+} from "@repo/validation"
 import axios from "axios"
 import type { RoomMessage } from "@/stores/app-store"
 import { useMessage, type ChatHistoryMessage } from "@/hooks/useMessage"
+import { useRooms } from "@/hooks/useRooms"
+import { z } from "zod"
 
 type MessageBubbleParent = {
   id: string
@@ -47,11 +60,24 @@ type MessageBubbleParent = {
   isDeleted?: boolean
 }
 
+type EditRoomFormInput = {
+  name: string
+  description: string
+  isPrivate: "true" | "false"
+}
+
 const toastOptions = {
   position: "top-center" as const,
 }
 
 const EMPTY_ROOM_MESSAGES: RoomMessage[] = []
+const roomBodySchema = createRoomSchema.shape.body
+
+const editRoomFormSchema = z.object({
+  name: roomBodySchema.shape.name,
+  description: roomBodySchema.shape.description,
+  isPrivate: z.enum(["false", "true"]),
+})
 
 export default function ChatSection({ room }: { room: RoomRecord | null }) {
   const roomId = room?.id ?? null
@@ -71,6 +97,15 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
   )
   const updateRoomLastMessage = useAppStore(
     (state) => state.updateRoomLastMessage
+  )
+  const currentRoomMember = room?.members.find(
+    (member) => member.userId === user?.id
+  )
+  const canManageRoom = Boolean(
+    user?.id &&
+    (currentRoomMember?.role === "ADMIN" ||
+      currentRoomMember?.role === "OWNER" ||
+      room?.creatorId === user.id)
   )
 
   const [draft, setDraft] = useState("")
@@ -259,33 +294,40 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
     <div className="h-svh w-full p-2 lg:p-4">
       <Card className="flex h-full w-full flex-col gap-0 border border-primary/50 p-0">
         <CardHeader className="flex items-center gap-2 border-b border-white/10 bg-white/5 px-2 pt-4 backdrop-blur-sm">
-            <button
-              type="button"
-              onClick={() => setActiveRoom(null)}
-              className="group flex items-center justify-center rounded-lg p-1.5 text-white/50 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-95"
-              aria-label="Go back"
-            >
-              <IconChevronLeft
-                stroke={2}
-                height={18}
-                width={18}
-                className="transition-transform duration-150 group-hover:-translate-x-0.5"
-              />
-            </button>
+          <button
+            type="button"
+            onClick={() => setActiveRoom(null)}
+            className="group flex items-center justify-center rounded-lg p-1.5 text-white/50 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-95"
+            aria-label="Go back"
+          >
+            <IconChevronLeft
+              stroke={2}
+              height={18}
+              width={18}
+              className="transition-transform duration-150 group-hover:-translate-x-0.5"
+            />
+          </button>
 
-            <Avatar className="h-9 w-9 shrink-0 border border-border">
-              <AvatarImage src={room?.name} alt={room?.name} />
-              <AvatarFallback className="text-xs">
-                {room.name[0]}
-              </AvatarFallback>
-            </Avatar>
+          <Avatar className="h-9 w-9 shrink-0 border border-border">
+            <AvatarImage src={room?.name} alt={room?.name} />
+            <AvatarFallback className="text-xs">{room.name[0]}</AvatarFallback>
+          </Avatar>
 
-            <span className="text-md flex-1 truncate tracking-wide text-white/90">
+          <div className="min-w-0 flex-1">
+            <div className="text-md truncate tracking-wide text-white/90">
               {room.name}
-            </span>
+            </div>
+            {room.description?.trim() && (
+              <div className="truncate text-xs text-white/45">
+                {room.description}
+              </div>
+            )}
+          </div>
+
+          {canManageRoom && <DialogEditRoom room={room} />}
         </CardHeader>
 
-        <CardContent className="min-h-0 flex-1 px-0 sm:px-2 py-0 shadow-inner">
+        <CardContent className="min-h-0 flex-1 px-0 py-0 shadow-inner sm:px-2">
           <ScrollArea className="h-full p-0">
             <div className="space-y-3 px-4 py-3 sm:px-6">
               {isLoading && (
@@ -479,25 +521,36 @@ function MessageBubble({
             <div
               className={`rounded-[18px] px-3.5 py-2 text-xs leading-relaxed text-white sm:text-sm ${
                 isOwn
-                  ? "rounded-br-4 bg-[#1d9bf0]"
+                  ? "rounded-br-4 bg-primary/60"
                   : "rounded-bl-4 bg-muted text-foreground"
               }`}
             >
               {parentId && parentMessage && (
                 <div
-                  className={`mb-2 rounded-2xl border-l-2 px-3 py-2 text-[11px] sm:text-xs ${
+                  className={`mb-2.5 rounded-2xl border px-3 py-2.5 text-[11px] shadow-sm sm:text-xs ${
                     isOwn
-                      ? "border-white/70 bg-white/15 text-white/90"
-                      : "border-primary/60 bg-background/70 text-muted-foreground"
+                      ? "border-white/15 bg-black/10 text-white/90 ring-1 ring-white/10"
+                      : "border-border/60 bg-background/80 text-muted-foreground"
                   }`}
                 >
-                  <div className="font-medium">{parentMessage.username}</div>
-                  <div className="line-clamp-2 break-words">
+                  <div
+                    className={`mb-1 flex items-center gap-1.5 ${
+                      isOwn ? "text-white/85" : "text-primary"
+                    }`}
+                  >
+                    <IconMessageReply size={12} />
+                    <span className="font-semibold">
+                      Replying to {parentMessage.username}
+                    </span>
+                  </div>
+                  <div className="line-clamp-2 leading-relaxed break-words">
                     {fallbackParentMessage}
                   </div>
                 </div>
               )}
-              {fallbackMessage}
+              <div className="break-words whitespace-pre-wrap">
+                {fallbackMessage}
+              </div>
             </div>
             <div>
               {!isOwn && (
@@ -533,6 +586,189 @@ function MessageBubble({
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
+  )
+}
+
+function DialogEditRoom({ room }: { room: RoomRecord }) {
+  const { upsertRoom, removeRoom, clearMessages } = useAppStore((state) => ({
+    upsertRoom: state.upsertRoom,
+    removeRoom: state.removeRoom,
+    clearMessages: state.clearMessages,
+  }))
+  const {
+    updateRoom: updateRoomRequest,
+    deleteRoom: deleteRoomRequest,
+  } = useRooms()
+  const [open, setOpen] = useState(false)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const defaultValues: EditRoomFormInput = {
+    name: room.name,
+    description: room.description ?? "",
+    isPrivate: room.isPrivate ? "true" : "false",
+  }
+
+  const roomFields: FieldConfig<EditRoomFormInput>[] = [
+    {
+      name: "name",
+      label: "Room Name",
+      placeholder: "my room",
+      autoComplete: "off",
+    },
+    {
+      name: "description",
+      label: "Description",
+      placeholder: "What this room is for",
+      autoComplete: "off",
+    },
+    {
+      name: "isPrivate",
+      label: "Room Visibility",
+      fieldType: "radio",
+      options: [
+        { label: "Public", value: "false" },
+        { label: "Private", value: "true" },
+      ],
+    },
+  ]
+
+  async function handleUpdateRoom(data: EditRoomFormInput) {
+    try {
+      const payload: EditRoomRequest["body"] = {
+        name: data.name,
+        description: data.description,
+        isPrivate: data.isPrivate === "true",
+      }
+      const updatedRoom = await updateRoomRequest(room.id, payload)
+
+      upsertRoom(updatedRoom)
+      setOpen(false)
+      toast.success("Room updated", toastOptions)
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? (error.response?.data?.error ??
+          error.response?.data?.message ??
+          "Unable to update room")
+        : "Unable to update room"
+
+      toast.error(message, toastOptions)
+    }
+  }
+
+  function handleOpenDeleteConfirmation() {
+    setOpen(false)
+    window.requestAnimationFrame(() => {
+      setConfirmDeleteOpen(true)
+    })
+  }
+
+  async function handleDeleteRoom() {
+    if (isDeleting) {
+      return
+    }
+
+    setIsDeleting(true)
+
+    try {
+      await deleteRoomRequest(room.id)
+      clearMessages(room.id)
+      removeRoom(room.id)
+      setConfirmDeleteOpen(false)
+      toast.success("Room deleted", toastOptions)
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? (error.response?.data?.error ??
+          error.response?.data?.message ??
+          "Unable to delete room")
+        : "Unable to delete room"
+
+      toast.error(message, toastOptions)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            className="flex items-center justify-center rounded-lg p-1.5 text-white/50 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-95"
+            aria-label="Edit room"
+          >
+            <IconDotsVertical size={18} stroke={2} />
+          </button>
+        </DialogTrigger>
+
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Room</DialogTitle>
+            <DialogDescription>
+              Update the room name, description, or visibility.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <AppForm
+              key={`${room.id}-${room.updatedAt}`}
+              formId={`edit-room-form-${room.id}`}
+              schema={editRoomFormSchema}
+              defaultValues={defaultValues}
+              fields={roomFields}
+              onSubmit={async (data) => {
+                await handleUpdateRoom(data)
+              }}
+              submitLabel="Save changes"
+              pendingLabel="Saving changes..."
+            />
+
+            <Button
+              type="button"
+              variant="destructive"
+              className="w-full"
+              onClick={handleOpenDeleteConfirmation}
+            >
+              Delete group
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Room?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete {room.name} and its messages. This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setConfirmDeleteOpen(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="flex-1"
+              onClick={() => void handleDeleteRoom()}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Confirm delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
