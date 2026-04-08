@@ -6,6 +6,7 @@ import {
   editRoomSchema,
   getRoomSchema,
   removeRoomMemberSchema,
+  searchRoomsSchema,
 } from '@repo/validation';
 import { addRoomMembers } from '../controllers/room/addRoomMembers.js';
 import { createRoom } from '../controllers/room/createRoom.js';
@@ -13,12 +14,14 @@ import { deleteRoom } from '../controllers/room/deleteRoom.js';
 import { editRoom } from '../controllers/room/editRoom.js';
 import { getRoom } from '../controllers/room/getRoom.js';
 import { removeRoomMember } from '../controllers/room/removeRoomMember.js';
+import { searchRooms } from '../controllers/room/searchRooms.js';
 import { validateRequest } from '../middleware/validation.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const roomRouter: Router = Router();
 
 roomRouter.post('/', validateRequest(createRoomSchema), asyncHandler(createRoom));
+roomRouter.get('/search', validateRequest(searchRoomsSchema), asyncHandler(searchRooms));
 roomRouter.get('/:id', validateRequest(getRoomSchema), asyncHandler(getRoom));
 roomRouter.post('/:id/members', validateRequest(addRoomMembersSchema), asyncHandler(addRoomMembers));
 roomRouter.delete(

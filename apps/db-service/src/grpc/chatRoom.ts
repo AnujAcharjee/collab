@@ -16,6 +16,8 @@ import type {
   EditRoomRequest,
   EditRoomMemberRequest,
   GetRoomRequest,
+  SearchRoomsRequest,
+  SearchRoomsResponse,
   RemoveRoomMemberRequest,
   ChatRoomMember,
   RemoveRoomMemberResponse,
@@ -223,6 +225,53 @@ export const chatRoom = {
       return callback(null, toProtoRoom(room));
     } catch (err) {
       logger.error({ err, roomId }, 'GetRoom failed');
+      return callback({
+        code: status.INTERNAL,
+        message: 'Internal server error',
+      });
+    }
+  },
+  searchRooms: async (
+    call: ServerUnaryCall<SearchRoomsRequest, SearchRoomsResponse>,
+    callback: sendUnaryData<SearchRoomsResponse>,
+  ) => {
+    const name = normalizeRequiredString(call.request.name);
+
+    if (!name) {
+      return callback({
+        code: status.INVALID_ARGUMENT,
+        message: 'name is required',
+      });
+    }
+
+    try {
+      const rooms = await prisma.chatRoom.findMany({
+        where: {
+          OR: [
+            {
+              name: {
+                startsWith: name,
+                mode: 'insensitive',
+              },
+            },
+            {
+              name: {
+                contains: name,
+                mode: 'insensitive',
+              },
+            },
+          ],
+        },
+        orderBy: { updatedAt: 'desc' },
+        include: roomInclude,
+        take: 50,
+      });
+
+      return callback(null, {
+        rooms: rooms.map(toProtoRoom),
+      });
+    } catch (err) {
+      logger.error({ err, name }, 'SearchRooms failed');
       return callback({
         code: status.INTERNAL,
         message: 'Internal server error',

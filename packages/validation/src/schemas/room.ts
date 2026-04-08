@@ -66,6 +66,18 @@ export const getRoomSchema = z.object({
 
 export type GetRoomRequest = z.infer<typeof getRoomSchema>;
 
+export const searchRoomsSchema = z.object({
+  query: z.object({
+    name: z
+      .string({ message: 'name must be a string' })
+      .trim()
+      .min(1, { message: 'name is required' })
+      .max(100, { message: 'name must be at most 100 characters' }),
+  }),
+});
+
+export type SearchRoomsRequest = z.infer<typeof searchRoomsSchema>;
+
 const usernameSchema = z
   .string({ message: 'username must be a string' })
   .trim()

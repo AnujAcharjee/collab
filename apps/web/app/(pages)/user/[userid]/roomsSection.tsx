@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type CSSProperties } from "react"
+import { useState, type CSSProperties, type FormEvent } from "react"
 import { Fragment } from "react/jsx-runtime"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -62,16 +62,64 @@ const toastOptions = {
 }
 
 export default function RoomsSection() {
-  const { activeRoom, rooms, user } = useAppStore(
+  const { activeRoom, rooms, user, setActiveRoom, upsertRoom } = useAppStore(
     useShallow((state) => ({
       activeRoom: state.activeRoom,
       rooms: state.rooms,
       user: state.user,
+      setActiveRoom: state.setActiveRoom,
+      upsertRoom: state.upsertRoom,
     }))
   )
+  const { searchRooms: searchRoomsRequest } = useRooms()
+  const [searchName, setSearchName] = useState("")
+  const [isSearching, setIsSearching] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
+  const [searchResults, setSearchResults] = useState<RoomRecord[]>([])
 
   if (!user) {
     return null
+  }
+
+  const isSearchMode = hasSearched
+  const displayedRooms = isSearchMode ? searchResults : rooms
+
+  async function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const name = searchName.trim()
+
+    if (!name || isSearching) {
+      return
+    }
+
+    setIsSearching(true)
+    setHasSearched(true)
+
+    try {
+      const results = await searchRoomsRequest(name)
+      setSearchResults(results)
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? (error.response?.data?.error ??
+          error.response?.data?.message ??
+          "Unable to search rooms")
+        : "Unable to search rooms"
+
+      toast.error(message, toastOptions)
+      setSearchResults([])
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  function handleRoomSelect(room: RoomRecord) {
+    upsertRoom(room)
+    setActiveRoom(room.id)
+  }
+
+  function resetSearch() {
+    setHasSearched(false)
+    setSearchResults([])
   }
 
   return (
@@ -83,7 +131,10 @@ export default function RoomsSection() {
           </CardTitle>
 
           <CardDescription className="w-full">
-            <div className="flex h-9 items-center gap-2 rounded-full border border-border/40 bg-muted/60 px-3">
+            <form
+              onSubmit={handleSearch}
+              className="flex h-9 items-center gap-2 rounded-full border border-border/40 bg-muted/60 px-3"
+            >
               <IconSearch
                 stroke={2}
                 height={14}
@@ -91,21 +142,57 @@ export default function RoomsSection() {
                 className="shrink-0 text-muted-foreground"
               />
               <input
-                placeholder="Search rooms"
+                value={searchName}
+                onChange={(event) => setSearchName(event.target.value)}
+                placeholder="Search rooms by name"
                 className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
+              {isSearchMode && (
+                <button
+                  type="button"
+                  onClick={resetSearch}
+                  className="rounded-md px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  My rooms
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={isSearching || !searchName.trim()}
+                className="rounded-md bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              >
+                {isSearching ? "..." : "Go"}
+              </button>
               <Separator orientation="vertical" decorative />
               <DialogCreateRoom creatorId={user.id} />
-            </div>
+            </form>
           </CardDescription>
         </CardHeader>
 
         <CardContent className="min-h-0 flex-1 p-0">
           <ScrollArea className="h-full">
             <div className="px-4 py-2 sm:px-6">
-              {rooms.map((room) => (
+              {isSearchMode && (
+                <div className="pb-2 text-xs text-muted-foreground">
+                  Search results for &quot;{searchName.trim()}&quot;
+                </div>
+              )}
+
+              {!isSearching && displayedRooms.length === 0 && (
+                <div className="rounded-lg border border-dashed border-border/70 px-3 py-6 text-center text-sm text-muted-foreground">
+                  {isSearchMode
+                    ? "No rooms found with that name."
+                    : "No rooms available."}
+                </div>
+              )}
+
+              {displayedRooms.map((room) => (
                 <Fragment key={room.id}>
-                  <ListItems room={room} isActive={activeRoom === room.id} />
+                  <ListItems
+                    room={room}
+                    isActive={activeRoom === room.id}
+                    onSelect={handleRoomSelect}
+                  />
                   <Separator className="my-2" />
                 </Fragment>
               ))}
@@ -132,19 +219,15 @@ export default function RoomsSection() {
 function ListItems({
   room,
   isActive,
+  onSelect,
 }: {
   room: RoomRecord
   isActive: boolean
+  onSelect: (room: RoomRecord) => void
 }) {
-  const setActiveRoom = useAppStore((state) => state.setActiveRoom)
-
-  const onClick = (roomId: string) => {
-    setActiveRoom(roomId)
-  }
-
   return (
     <div
-      onClick={() => onClick(room.id)}
+      onClick={() => onSelect(room)}
       className={`flex items-center justify-between rounded-md px-3 py-2 transition-colors bg-card hover:bg-muted/50`}
     >
       <div className="flex items-center gap-2">

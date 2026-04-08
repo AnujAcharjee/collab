@@ -10,6 +10,7 @@ import type {
   EditRoomRequest,
   RemoveRoomMemberRequest,
   RoomRecord,
+  SearchRoomsRequest,
 } from "@repo/validation"
 
 type RoomResponse = {
@@ -133,11 +134,23 @@ export const useRooms = () => {
     []
   )
 
+  const searchRooms = useCallback(async (name: SearchRoomsRequest["query"]["name"]) => {
+    const res = await axios.get<{ data?: { rooms?: RoomRecord[] } }>(
+      `${roomsApiUrl}/search`,
+      {
+        params: { name },
+      }
+    )
+
+    return res.data.data?.rooms ?? []
+  }, [])
+
   return {
     createRoom,
     updateRoom,
     deleteRoom,
     addMembers,
     removeMember,
+    searchRooms,
   }
 }

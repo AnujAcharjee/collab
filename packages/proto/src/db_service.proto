@@ -59,6 +59,7 @@ message ChatRoom {
 
 service Db {
   rpc GetRoom(GetRoomRequest) returns (ChatRoom);
+  rpc SearchRooms(SearchRoomsRequest) returns (SearchRoomsResponse);
   rpc CreateRoom(CreateRoomRequest) returns (ChatRoom);
   rpc EditRoom(EditRoomRequest) returns (ChatRoom);
   rpc DeleteRoom(DeleteRoomRequest) returns (DeleteRoomResponse);
@@ -85,6 +86,14 @@ service Db {
 
 message GetRoomRequest {
   string id = 1;
+}
+
+message SearchRoomsRequest {
+  string name = 1;
+}
+
+message SearchRoomsResponse {
+  repeated ChatRoom rooms = 1;
 }
 
 message CreateRoomRequest {
