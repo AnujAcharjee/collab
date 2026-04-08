@@ -3,7 +3,9 @@ import { logger } from './logger.js';
 import { WebSocketServer } from 'ws';
 import {
   chatMessagePayloadAndReceiversSchema,
+  roomMemberRemovedPayloadAndReceiversSchema,
   type ChatMessagePayloadAndReceivers,
+  type RoomMemberRemovedPayloadAndReceivers,
   type WsMessage,
 } from '@repo/validation';
 import { AppWebSocket } from './types/wss.js';
@@ -50,34 +52,65 @@ export const initConsumer = async (channel: string, wss: WebSocketServer): Promi
 
     logger.debug({ channel, message }, 'Received message from Redis');
 
-    let parsed: ChatMessagePayloadAndReceivers;
+    let parsedChatMessage: ChatMessagePayloadAndReceivers | null = null;
+    let parsedRoomMemberRemoved: RoomMemberRemovedPayloadAndReceivers | null = null;
     try {
-      parsed = chatMessagePayloadAndReceiversSchema.parse(JSON.parse(message));
+      const raw = JSON.parse(message);
+
+      try {
+        parsedChatMessage = chatMessagePayloadAndReceiversSchema.parse(raw);
+      } catch {
+        parsedRoomMemberRemoved = roomMemberRemovedPayloadAndReceiversSchema.parse(raw);
+      }
     } catch (err) {
       logger.error({ err, message }, 'Failed to parse Redis message');
       return;
     }
 
-    const { sender, text, attachments, roomId, parentId, createdAt, id, receivers } = parsed;
+    if (parsedChatMessage) {
+      const { sender, text, attachments, roomId, parentId, createdAt, id, receivers } = parsedChatMessage;
 
-    const receiverIds = new Set(receivers);
-    const clients = [...wss.clients].filter(
-      (client): client is AppWebSocket => receiverIds.has((client as AppWebSocket).user.id),
-    );
+      const receiverIds = new Set(receivers);
+      const clients = [...wss.clients].filter(
+        (client): client is AppWebSocket => receiverIds.has((client as AppWebSocket).user.id),
+      );
 
-    logger.debug({ clients: clients.length }, 'Number of clients to receive the message');
+      logger.debug({ clients: clients.length }, 'Number of clients to receive the message');
 
-    const wsMessage: WsMessage = {
-      type: 'chat_message',
-      payload: { id, parentId, sender, text, attachments, roomId, createdAt },
-    };
-    const wsStrMessage = JSON.stringify(wsMessage);
+      const wsMessage: WsMessage = {
+        type: 'chat_message',
+        payload: { id, parentId, sender, text, attachments, roomId, createdAt },
+      };
+      const wsStrMessage = JSON.stringify(wsMessage);
 
-    clients.forEach((client: AppWebSocket) => {
-      if (client.readyState === client.OPEN) {
-        client.send(wsStrMessage);
-      }
-    });
+      clients.forEach((client: AppWebSocket) => {
+        if (client.readyState === client.OPEN) {
+          client.send(wsStrMessage);
+        }
+      });
+
+      return;
+    }
+
+    if (parsedRoomMemberRemoved) {
+      const { roomId, removedUserId, removedUsername, receivers } = parsedRoomMemberRemoved;
+      const receiverIds = new Set(receivers);
+      const clients = [...wss.clients].filter(
+        (client): client is AppWebSocket => receiverIds.has((client as AppWebSocket).user.id),
+      );
+
+      const wsMessage: WsMessage = {
+        type: 'room_member_removed',
+        payload: { roomId, removedUserId, removedUsername },
+      };
+      const wsStrMessage = JSON.stringify(wsMessage);
+
+      clients.forEach((client: AppWebSocket) => {
+        if (client.readyState === client.OPEN) {
+          client.send(wsStrMessage);
+        }
+      });
+    }
   });
 
   // Subscribe to the Redis channel

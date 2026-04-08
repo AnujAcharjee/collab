@@ -66,6 +66,36 @@ export const getRoomSchema = z.object({
 
 export type GetRoomRequest = z.infer<typeof getRoomSchema>;
 
+const usernameSchema = z
+  .string({ message: 'username must be a string' })
+  .trim()
+  .min(1, { message: 'username is required' })
+  .max(50, { message: 'username must be at most 50 characters' })
+  .transform((value) => value.replace(/^@+/, ''));
+
+export const addRoomMembersSchema = z.object({
+  params: z.object({
+    id: uuidSchema('id must be a valid UUID'),
+  }),
+  body: z.object({
+    usernames: z
+      .array(usernameSchema, { message: 'usernames must be an array' })
+      .min(1, { message: 'Provide at least one username' })
+      .max(100, { message: 'You can add at most 100 users at once' }),
+  }),
+});
+
+export type AddRoomMembersRequest = z.infer<typeof addRoomMembersSchema>;
+
+export const removeRoomMemberSchema = z.object({
+  params: z.object({
+    id: uuidSchema('id must be a valid UUID'),
+    memberId: uuidSchema('memberId must be a valid UUID'),
+  }),
+});
+
+export type RemoveRoomMemberRequest = z.infer<typeof removeRoomMemberSchema>;
+
 export const roomMemberRoleSchema = z.enum(['MEMBER', 'ADMIN', 'OWNER']);
 
 export const roomMemberResponseSchema = z.object({

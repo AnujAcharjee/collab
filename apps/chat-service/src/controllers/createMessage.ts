@@ -18,6 +18,16 @@ export const createMessage = async (req: Request, res: Response) => {
   const { sender, text, attachments, roomId, parentId, type } = req.body as CreateMessageInput['body'];
 
   try {
+    const receivers = await getRoomMemberIds(roomId);
+    const isRoomMember = receivers.includes(sender);
+
+    if (!isRoomMember) {
+      return res.status(403).json({
+        success: false,
+        error: 'You are no longer a member of this room',
+      });
+    }
+
     const message = await createMessageRpc({
       userId: sender,
       roomId,
@@ -28,8 +38,6 @@ export const createMessage = async (req: Request, res: Response) => {
     });
 
     try {
-      const receivers = await getRoomMemberIds(message.roomId);
-
       if (receivers.length > 0) {
         const wsPayload: ChatMessagePayloadAndReceivers = {
           id: message.id,

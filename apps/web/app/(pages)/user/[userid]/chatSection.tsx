@@ -28,6 +28,9 @@ import {
   IconMessageReply,
   IconPinned,
   IconTrash,
+  IconUserMinus,
+  IconUserPlus,
+  IconUsers,
   IconX,
 } from "@tabler/icons-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -43,8 +46,10 @@ import AppForm, { type FieldConfig } from "@/components/AppForm"
 import { Button } from "@/components/ui/button"
 import { createRoomSchema } from "@repo/validation"
 import type {
+  AddRoomMembersRequest,
   CreateMessageInput,
   EditRoomRequest,
+  RoomMemberRecord,
   RoomRecord,
 } from "@repo/validation"
 import axios from "axios"
@@ -115,6 +120,7 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(
     null
   )
+  const [showMembersPanel, setShowMembersPanel] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const roomMessagesById = new Map(
     roomMessages.map((message) => [message.id, message])
@@ -150,6 +156,7 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
     if (!roomId) {
       setDraft("")
       setReplyingTo(null)
+      setShowMembersPanel(false)
       return
     }
 
@@ -189,6 +196,10 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
       isCancelled = true
     }
   }, [fetchMessages, roomId, setMessages])
+
+  useEffect(() => {
+    setShowMembersPanel(false)
+  }, [roomId])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
@@ -308,12 +319,26 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
             />
           </button>
 
-          <Avatar className="h-9 w-9 shrink-0 border border-border">
-            <AvatarImage src={room?.name} alt={room?.name} />
-            <AvatarFallback className="text-xs">{room.name[0]}</AvatarFallback>
-          </Avatar>
+          <button
+            type="button"
+            onClick={() => setShowMembersPanel((current) => !current)}
+            className="rounded-lg transition hover:bg-white/10"
+            aria-label="View room members"
+          >
+            <Avatar className="h-9 w-9 shrink-0 border border-border">
+              <AvatarImage src={room?.name} alt={room?.name} />
+              <AvatarFallback className="text-xs">
+                {room.name[0]}
+              </AvatarFallback>
+            </Avatar>
+          </button>
 
-          <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={() => setShowMembersPanel((current) => !current)}
+            className="min-w-0 flex-1 rounded-lg px-1 py-0.5 text-left transition hover:bg-white/10"
+            aria-label="View room members"
+          >
             <div className="text-md truncate tracking-wide text-white/90">
               {room.name}
             </div>
@@ -322,151 +347,162 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
                 {room.description}
               </div>
             )}
-          </div>
+          </button>
 
           {canManageRoom && <DialogEditRoom room={room} />}
         </CardHeader>
 
         <CardContent className="min-h-0 flex-1 px-0 py-0 shadow-inner sm:px-2">
-          <ScrollArea className="h-full p-0">
-            <div className="space-y-3 px-4 py-3 sm:px-6">
-              {isLoading && (
-                <div className="text-center text-sm text-muted-foreground">
-                  Loading messages...
-                </div>
-              )}
+          {showMembersPanel ? (
+            <RoomMembersPanel
+              room={room}
+              currentUserId={user?.id ?? null}
+              canManageRoom={canManageRoom}
+              onShowChat={() => setShowMembersPanel(false)}
+            />
+          ) : (
+            <ScrollArea className="h-full p-0">
+              <div className="space-y-3 px-4 py-3 sm:px-6">
+                {isLoading && (
+                  <div className="text-center text-sm text-muted-foreground">
+                    Loading messages...
+                  </div>
+                )}
 
-              {!isLoading && roomMessages.length === 0 && (
-                <div className="text-center text-sm text-muted-foreground">
-                  No messages yet. Start the conversation.
-                </div>
-              )}
+                {!isLoading && roomMessages.length === 0 && (
+                  <div className="text-center text-sm text-muted-foreground">
+                    No messages yet. Start the conversation.
+                  </div>
+                )}
 
-              {roomMessages.map((message) => {
-                const isOwn = message.sender === user?.id
-                const username = getMessageAuthorName(message)
-                const avatar = getMessageAuthorAvatar(message)
-                const parentMessage = message.parentId
-                  ? roomMessagesById.get(message.parentId)
-                  : undefined
-                const parentUsername = parentMessage
-                  ? getMessageAuthorName(parentMessage)
-                  : undefined
+                {roomMessages.map((message) => {
+                  const isOwn = message.sender === user?.id
+                  const username = getMessageAuthorName(message)
+                  const avatar = getMessageAuthorAvatar(message)
+                  const parentMessage = message.parentId
+                    ? roomMessagesById.get(message.parentId)
+                    : undefined
+                  const parentUsername = parentMessage
+                    ? getMessageAuthorName(parentMessage)
+                    : undefined
 
-                return (
-                  <MessageBubble
-                    key={message.id}
-                    username={username}
-                    avatar={avatar}
-                    parentId={message.parentId}
-                    parentMessage={
-                      message.parentId
-                        ? {
-                            id: parentMessage?.id ?? message.parentId,
-                            username: parentUsername ?? "Original message",
-                            message: parentMessage?.text,
-                            isDeleted: parentMessage?.isDeleted,
-                          }
-                        : undefined
-                    }
-                    message={
-                      message.isDeleted ? "Message deleted" : message.text
-                    }
-                    timestamp={formatMessageTime(message.createdAt)}
-                    isOwn={isOwn}
-                    canDelete={
-                      isOwn &&
-                      !message.isDeleted &&
-                      deletingMessageId !== message.id
-                    }
-                    onReply={() => setReplyingTo(message)}
-                    onDelete={() => void handleDeleteMessage(message.id)}
-                  />
-                )
-              })}
+                  return (
+                    <MessageBubble
+                      key={message.id}
+                      username={username}
+                      avatar={avatar}
+                      parentId={message.parentId}
+                      parentMessage={
+                        message.parentId
+                          ? {
+                              id: parentMessage?.id ?? message.parentId,
+                              username: parentUsername ?? "Original message",
+                              message: parentMessage?.text,
+                              isDeleted: parentMessage?.isDeleted,
+                            }
+                          : undefined
+                      }
+                      message={
+                        message.isDeleted ? "Message deleted" : message.text
+                      }
+                      timestamp={formatMessageTime(message.createdAt)}
+                      isOwn={isOwn}
+                      canDelete={
+                        isOwn &&
+                        !message.isDeleted &&
+                        deletingMessageId !== message.id
+                      }
+                      onReply={() => setReplyingTo(message)}
+                      onDelete={() => void handleDeleteMessage(message.id)}
+                    />
+                  )
+                })}
 
-              <div ref={messagesEndRef} />
-            </div>
-          </ScrollArea>
+                <div ref={messagesEndRef} />
+              </div>
+            </ScrollArea>
+          )}
         </CardContent>
 
-        <CardFooter className="flex gap-2 pt-2 pb-5">
-          <form
-            className="flex w-full items-end gap-2"
-            onSubmit={(event) => {
-              event.preventDefault()
-              void sendMessage()
-            }}
-          >
-            <div className="flex flex-1 flex-col gap-2">
-              {replyingTo && (
-                <div className="flex items-start justify-between rounded-xl border border-primary/40 bg-white/8 px-3 py-2">
-                  <div className="min-w-0 border-l-2 border-primary/70 pl-3">
-                    <div className="text-xs font-medium text-primary">
-                      Replying to {getMessageAuthorName(replyingTo)}
+        {!showMembersPanel && (
+          <CardFooter className="flex gap-2 pt-2 pb-5">
+            <form
+              className="flex w-full items-end gap-2"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void sendMessage()
+              }}
+            >
+              <div className="flex flex-1 flex-col gap-2">
+                {replyingTo && (
+                  <div className="flex items-start justify-between rounded-xl border border-primary/40 bg-white/8 px-3 py-2">
+                    <div className="min-w-0 border-l-2 border-primary/70 pl-3">
+                      <div className="text-xs font-medium text-primary">
+                        Replying to {getMessageAuthorName(replyingTo)}
+                      </div>
+                      <div className="line-clamp-2 text-xs text-muted-foreground">
+                        {getMessageBody(replyingTo)}
+                      </div>
                     </div>
-                    <div className="line-clamp-2 text-xs text-muted-foreground">
-                      {getMessageBody(replyingTo)}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReplyingTo(null)}
+                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+                      aria-label="Cancel reply"
+                    >
+                      <IconX size={16} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setReplyingTo(null)}
-                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
-                    aria-label="Cancel reply"
-                  >
-                    <IconX size={16} />
-                  </button>
-                </div>
-              )}
+                )}
 
-              <InputGroup className="h-10 w-full border border-primary/50">
-                <InputGroupInput
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                  placeholder={`Message ${activeRoom.name}`}
-                  disabled={!user || isSending}
+                <InputGroup className="h-10 w-full border border-primary/50">
+                  <InputGroupInput
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    placeholder={`Message ${activeRoom.name}`}
+                    disabled={!user || isSending}
+                  />
+
+                  <InputGroupAddon>
+                    <IconPaperclip
+                      stroke={2}
+                      height={20}
+                      width={20}
+                      className="cursor-not-allowed text-white/30"
+                    />
+                    <IconMoodSmile
+                      stroke={2}
+                      height={20}
+                      width={20}
+                      className="cursor-not-allowed text-white/30"
+                    />
+                  </InputGroupAddon>
+
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                      type="submit"
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={!user || !draft.trim() || isSending}
+                      className="text-white/50 hover:text-white"
+                    >
+                      <IconBrandTelegram stroke={2} height={18} width={18} />
+                    </InputGroupButton>
+                  </InputGroupAddon>
+                </InputGroup>
+              </div>
+
+              <div className="rounded-full border border-border/50 bg-white/10 p-1.5">
+                <IconMicrophone
+                  stroke={2}
+                  height={20}
+                  width={20}
+                  className="cursor-not-allowed text-white/30"
                 />
-
-                <InputGroupAddon>
-                  <IconPaperclip
-                    stroke={2}
-                    height={20}
-                    width={20}
-                    className="cursor-not-allowed text-white/30"
-                  />
-                  <IconMoodSmile
-                    stroke={2}
-                    height={20}
-                    width={20}
-                    className="cursor-not-allowed text-white/30"
-                  />
-                </InputGroupAddon>
-
-                <InputGroupAddon align="inline-end">
-                  <InputGroupButton
-                    type="submit"
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={!user || !draft.trim() || isSending}
-                    className="text-white/50 hover:text-white"
-                  >
-                    <IconBrandTelegram stroke={2} height={18} width={18} />
-                  </InputGroupButton>
-                </InputGroupAddon>
-              </InputGroup>
-            </div>
-
-            <div className="rounded-full border border-border/50 bg-white/10 p-1.5">
-              <IconMicrophone
-                stroke={2}
-                height={20}
-                width={20}
-                className="cursor-not-allowed text-white/30"
-              />
-            </div>
-          </form>
-        </CardFooter>
+              </div>
+            </form>
+          </CardFooter>
+        )}
       </Card>
     </div>
   )
@@ -590,15 +626,8 @@ function MessageBubble({
 }
 
 function DialogEditRoom({ room }: { room: RoomRecord }) {
-  const { upsertRoom, removeRoom, clearMessages } = useAppStore((state) => ({
-    upsertRoom: state.upsertRoom,
-    removeRoom: state.removeRoom,
-    clearMessages: state.clearMessages,
-  }))
-  const {
-    updateRoom: updateRoomRequest,
-    deleteRoom: deleteRoomRequest,
-  } = useRooms()
+  const { updateRoom: updateRoomRequest, deleteRoom: deleteRoomRequest } =
+    useRooms()
   const [open, setOpen] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -642,7 +671,7 @@ function DialogEditRoom({ room }: { room: RoomRecord }) {
       }
       const updatedRoom = await updateRoomRequest(room.id, payload)
 
-      upsertRoom(updatedRoom)
+      useAppStore.getState().upsertRoom(updatedRoom)
       setOpen(false)
       toast.success("Room updated", toastOptions)
     } catch (error) {
@@ -672,6 +701,8 @@ function DialogEditRoom({ room }: { room: RoomRecord }) {
 
     try {
       await deleteRoomRequest(room.id)
+      const { clearMessages, removeRoom } = useAppStore.getState()
+
       clearMessages(room.id)
       removeRoom(room.id)
       setConfirmDeleteOpen(false)
@@ -764,6 +795,251 @@ function DialogEditRoom({ room }: { room: RoomRecord }) {
               disabled={isDeleting}
             >
               {isDeleting ? "Deleting..." : "Confirm delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+function RoomMembersPanel({
+  room,
+  currentUserId,
+  canManageRoom,
+  onShowChat,
+}: {
+  room: RoomRecord
+  currentUserId: string | null
+  canManageRoom: boolean
+  onShowChat: () => void
+}) {
+  const { addMembers: addMembersRequest, removeMember: removeMemberRequest } =
+    useRooms()
+  const [addMembersOpen, setAddMembersOpen] = useState(false)
+  const [removeTarget, setRemoveTarget] = useState<RoomMemberRecord | null>(
+    null
+  )
+  const [usernamesInput, setUsernamesInput] = useState("")
+  const [isAdding, setIsAdding] = useState(false)
+  const [isRemoving, setIsRemoving] = useState(false)
+
+  async function handleAddMembers() {
+    const usernames = usernamesInput
+      .split(/[,\n\s]+/)
+      .map((username) => username.trim().replace(/^@+/, ""))
+      .filter(Boolean)
+    const uniqueUsernames = [...new Set(usernames)]
+
+    if (!uniqueUsernames.length || isAdding) {
+      return
+    }
+
+    setIsAdding(true)
+
+    try {
+      const payload: AddRoomMembersRequest["body"]["usernames"] =
+        uniqueUsernames
+      const { room: updatedRoom, addedCount } = await addMembersRequest(
+        room.id,
+        payload
+      )
+
+      useAppStore.getState().upsertRoom(updatedRoom)
+      setUsernamesInput("")
+      setAddMembersOpen(false)
+      toast.success(
+        addedCount > 0
+          ? `${addedCount} member(s) added`
+          : "Members already exist",
+        toastOptions
+      )
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? (error.response?.data?.error ??
+          error.response?.data?.message ??
+          "Unable to add members")
+        : "Unable to add members"
+
+      toast.error(message, toastOptions)
+    } finally {
+      setIsAdding(false)
+    }
+  }
+
+  async function handleRemoveMember() {
+    if (!removeTarget || isRemoving) {
+      return
+    }
+
+    setIsRemoving(true)
+
+    try {
+      const { room: updatedRoom } = await removeMemberRequest(
+        room.id,
+        removeTarget.id
+      )
+      useAppStore.getState().upsertRoom(updatedRoom)
+      setRemoveTarget(null)
+      toast.success("Member removed", toastOptions)
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? (error.response?.data?.error ??
+          error.response?.data?.message ??
+          "Unable to remove member")
+        : "Unable to remove member"
+
+      toast.error(message, toastOptions)
+    } finally {
+      setIsRemoving(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="flex h-full flex-col">
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-6">
+          <div className="flex items-center gap-2 text-sm font-semibold text-white/90">
+            <IconUsers size={16} />
+            Members ({room.members.length})
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onShowChat}
+            >
+              Show chat
+            </Button>
+            {canManageRoom && (
+              <Button
+                type="button"
+                size="sm"
+                className="h-8"
+                onClick={() => setAddMembersOpen(true)}
+              >
+                <IconUserPlus size={14} />
+                Add member
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <ScrollArea className="h-full">
+          <div className="space-y-2 px-4 py-3 sm:px-6">
+            {room.members.map((member) => {
+              const displayName = member.user?.username ?? "Unknown user"
+              const canRemove =
+                canManageRoom &&
+                member.role !== "OWNER" &&
+                member.userId !== currentUserId
+
+              return (
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between rounded-lg border border-border/40 bg-card/60 px-3 py-2"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Avatar className="h-8 w-8 border border-border">
+                      <AvatarImage
+                        src={member.user?.avatarUrl ?? undefined}
+                        alt={displayName}
+                      />
+                      <AvatarFallback className="text-xs">
+                        {displayName[0] ?? "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm">{displayName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {member.role}
+                      </div>
+                    </div>
+                  </div>
+
+                  {canRemove && (
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => setRemoveTarget(member)}
+                    >
+                      <IconUserMinus size={14} />
+                    </Button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </ScrollArea>
+      </div>
+
+      <Dialog open={addMembersOpen} onOpenChange={setAddMembersOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add members</DialogTitle>
+            <DialogDescription>
+              Add one or more usernames. Use @username and separate multiple
+              users with comma or space.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <input
+              value={usernamesInput}
+              onChange={(event) => setUsernamesInput(event.target.value)}
+              placeholder="@alice, @bob"
+              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none"
+            />
+            <Button
+              type="button"
+              className="w-full"
+              onClick={() => void handleAddMembers()}
+              disabled={isAdding || !usernamesInput.trim()}
+            >
+              {isAdding ? "Adding..." : "Add member"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(removeTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemoveTarget(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remove member?</DialogTitle>
+            <DialogDescription>
+              Remove {removeTarget?.user?.username ?? "this member"} from this
+              room?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setRemoveTarget(null)}
+              disabled={isRemoving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="flex-1"
+              onClick={() => void handleRemoveMember()}
+              disabled={isRemoving}
+            >
+              {isRemoving ? "Removing..." : "Confirm remove"}
             </Button>
           </div>
         </DialogContent>

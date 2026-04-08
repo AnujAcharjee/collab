@@ -5,8 +5,10 @@ import axios from "axios"
 
 import { roomsApiUrl } from "@/constants/apiUrls"
 import type {
+  AddRoomMembersRequest,
   CreateRoomInput,
   EditRoomRequest,
+  RemoveRoomMemberRequest,
   RoomRecord,
 } from "@repo/validation"
 
@@ -20,6 +22,24 @@ type RoomResponse = {
 
 type DeleteRoomResponse = {
   data?: {
+    id?: string
+  }
+  error?: string
+  message?: string
+}
+
+type AddRoomMembersResponse = {
+  data?: {
+    room?: RoomRecord
+    addedCount?: number
+  }
+  error?: string
+  message?: string
+}
+
+type RemoveRoomMemberResponse = {
+  data?: {
+    room?: RoomRecord
     id?: string
   }
   error?: string
@@ -68,9 +88,56 @@ export const useRooms = () => {
     return deletedRoomId
   }, [])
 
+  const addMembers = useCallback(
+    async (
+      roomId: string,
+      usernames: AddRoomMembersRequest["body"]["usernames"]
+    ) => {
+      const res = await axios.post<AddRoomMembersResponse>(
+        `${roomsApiUrl}/${roomId}/members`,
+        { usernames }
+      )
+      const room = res.data.data?.room
+
+      if (!room) {
+        throw new Error("Room was not returned")
+      }
+
+      return {
+        room,
+        addedCount: res.data.data?.addedCount ?? 0,
+      }
+    },
+    []
+  )
+
+  const removeMember = useCallback(
+    async (
+      roomId: string,
+      memberId: RemoveRoomMemberRequest["params"]["memberId"]
+    ) => {
+      const res = await axios.delete<RemoveRoomMemberResponse>(
+        `${roomsApiUrl}/${roomId}/members/${memberId}`
+      )
+      const room = res.data.data?.room
+
+      if (!room) {
+        throw new Error("Room was not returned")
+      }
+
+      return {
+        room,
+        id: res.data.data?.id ?? memberId,
+      }
+    },
+    []
+  )
+
   return {
     createRoom,
     updateRoom,
     deleteRoom,
+    addMembers,
+    removeMember,
   }
 }

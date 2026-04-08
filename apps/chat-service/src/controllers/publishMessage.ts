@@ -35,6 +35,15 @@ export const publishMessage = async (req: Request, res: Response) => {
 
   try {
     const receivers = await getRoomMemberIds(chatMessagePayload.roomId);
+    const isRoomMember = receivers.includes(chatMessagePayload.sender);
+
+    if (!isRoomMember) {
+      return res.status(403).json({
+        success: false,
+        error: 'You are no longer a member of this room',
+      });
+    }
+
     logger.debug(receivers, 'Message Receivers');
 
     const pipeline = redis
