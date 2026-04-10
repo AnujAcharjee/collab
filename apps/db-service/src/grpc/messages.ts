@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { logger } from '../logger.js';
+import { logger } from '../lib/logger.js';
 import prisma, { MessageType as PrismaMessageType, Prisma } from '../db.js';
 import { ServerUnaryCall, sendUnaryData, status } from '@grpc/grpc-js';
 import { MessageType } from '@repo/proto';
@@ -45,13 +45,17 @@ function serializeAttachments(attachments: unknown): string | undefined {
   return JSON.stringify(attachments);
 }
 
-function normalizeRequiredString(value: string): string | null {
+function normalizeRequiredString(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
 }
 
-function normalizeOptionalString(value: string | undefined): string | undefined {
-  if (value === undefined) return undefined;
+function normalizeOptionalString(value: string | null | undefined): string | undefined {
+  if (typeof value !== 'string') return undefined;
 
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
@@ -59,6 +63,20 @@ function normalizeOptionalString(value: string | undefined): string | undefined 
 
 function isPrismaError(err: unknown): err is { code: string } {
   return typeof err === 'object' && err !== null && 'code' in err && typeof err.code === 'string';
+}
+
+async function isRoomMember(roomId: string, userId: string): Promise<boolean> {
+  const member = await prisma.chatRoomMember.findUnique({
+    where: {
+      roomId_userId: {
+        roomId,
+        userId,
+      },
+    },
+    select: { id: true },
+  });
+
+  return Boolean(member);
 }
 
 function toPrismaMessageType(type: MessageType): PrismaMessageType | null {
@@ -135,7 +153,7 @@ function toRoomMessage(message: RoomMessageRecord): RoomMessages {
     modifiedAt: message.modifiedAt ?? undefined,
     createdAt: message.createdAt,
     updatedAt: message.updatedAt,
-    senderUsername: message.user.username,
+    senderUsername: message.user.username,      // user → lowercase
     senderAvatarUrl: message.user.avatarUrl ?? undefined,
   };
 }
@@ -223,6 +241,15 @@ export const messages = {
         return callback({
           code: status.NOT_FOUND,
           message: `Room ${roomId} not found`,
+        });
+      }
+
+      const member = await isRoomMember(roomId, userId);
+
+      if (!member) {
+        return callback({
+          code: status.PERMISSION_DENIED,
+          message: 'Only room members can send messages',
         });
       }
 
@@ -408,6 +435,18 @@ export const messages = {
     const limit = normalizeLimit(call.request.limit);
 
     try {
+      const room = await prisma.chatRoom.findUnique({
+        where: { id: roomId },
+        select: { id: true },
+      });
+
+      if (!room) {
+        return callback({
+          code: status.NOT_FOUND,
+          message: `Room ${roomId} not found`,
+        });
+      }
+
       const roomMessages = await prisma.chatMessage.findMany({
         where: { roomId },
         orderBy: { createdAt: 'desc' },

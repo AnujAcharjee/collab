@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import type { DeleteMessageInput } from '@repo/validation';
 import { deleteMessage as deleteMessageRpc } from '../grpc/index.js';
-import { logger } from '../logger.js';
+import { logger } from '../lib/logger.js';
 import { toHttpError } from './@helpers.js';
 
 export const deleteMessage = async (req: Request, res: Response) => {

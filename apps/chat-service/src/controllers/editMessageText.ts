@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import type { EditMessageTextInput } from '@repo/validation';
 import { editMessageText as editMessageTextRpc } from '../grpc/index.js';
-import { logger } from '../logger.js';
+import { logger } from '../lib/logger.js';
 import { toHttpError } from './@helpers.js';
 
 export const editMessageText = async (req: Request, res: Response) => {

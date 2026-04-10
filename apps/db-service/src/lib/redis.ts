@@ -1,4 +1,4 @@
-import { createRedisClient, type RedisClient, type RedisConfig, type RedisEventHandlers } from '@repo/redis';
+import { createRedisClient, type RedisClient, type RedisEventHandlers } from '@repo/redis';
 import { logger } from './logger.js';
 
 const url = process.env.REDIS_URL!;

@@ -2,8 +2,8 @@ import type { Request, Response } from 'express';
 import type { ChatMessagePayloadAndReceivers, CreateMessageInput } from '@repo/validation';
 import { MessageType } from '@repo/proto';
 import { createMessage as createMessageRpc, getRoomMemberIds } from '../grpc/index.js';
-import { logger } from '../logger.js';
-import { redis } from '../redis.js';
+import { logger } from '../lib/logger.js';
+import { redis } from '../lib/redis.js';
 import { toHttpError } from './@helpers.js';
 
 const messageTypeMap = {
@@ -15,7 +15,15 @@ const messageTypeMap = {
 const REDIS_CHANNEL = 'chat-messages';
 
 export const createMessage = async (req: Request, res: Response) => {
-  const { sender, text, attachments, roomId, parentId, type } = req.body as CreateMessageInput['body'];
+  const { text, attachments, roomId, parentId, type } = req.body as CreateMessageInput['body'];
+  const sender = req.user?.id;
+
+  if (!sender) {
+    return res.status(401).json({
+      success: false,
+      error: 'Authenticated user is required',
+    });
+  }
 
   try {
     const receivers = await getRoomMemberIds(roomId);

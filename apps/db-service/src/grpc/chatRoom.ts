@@ -1,8 +1,11 @@
 import { randomUUID } from 'crypto';
-import { logger } from '../logger.js';
-import prisma, { RoomMemberRole as PrismaRoomMemberRole } from '../db.js';
+import { logger } from '../lib/logger.js';
+import prisma, {
+  JoinRequestStatus as PrismaJoinRequestStatus,
+  RoomMemberRole as PrismaRoomMemberRole,
+} from '../db.js';
 import { ServerUnaryCall, sendUnaryData, status } from '@grpc/grpc-js';
-import { RoomMemberRole } from '@repo/proto';
+import { JoinRequestStatus, RoomMemberRole } from '@repo/proto';
 import type {
   ChatRoom,
   GetRoomMemberIdsRequest,
@@ -21,6 +24,13 @@ import type {
   RemoveRoomMemberRequest,
   ChatRoomMember,
   RemoveRoomMemberResponse,
+  ChatRoomJoinRequest,
+  RequestJoinRoomRequest,
+  RequestJoinRoomResponse,
+  GetPendingJoinRequestsRequest,
+  GetPendingJoinRequestsResponse,
+  RespondJoinRequestRequest,
+  RespondJoinRequestResponse,
   User,
 } from '@repo/proto';
 
@@ -32,7 +42,7 @@ const roleMap: Record<PrismaRoomMemberRole, RoomMemberRole> = {
 
 export const roomInclude = {
   creator: true,
-  chatRoomMembers: {
+  members: {
     orderBy: { createdAt: 'asc' },
     include: { user: true },
   },
@@ -53,7 +63,6 @@ function normalizeRequiredString(value: string): string | null {
 
 function normalizeOptionalString(value: string | undefined): string | null | undefined {
   if (value === undefined) return undefined;
-
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
 }
@@ -67,11 +76,9 @@ function validateRoomName(name: string): string | null {
 function validateRoomDescription(description: string | null | undefined): string | null | undefined {
   if (description === undefined) return undefined;
   if (description === null) return null;
-
   const normalized = description.trim();
   if (normalized.length === 0) return null;
   if (normalized.length > 255) return undefined;
-
   return normalized;
 }
 
@@ -153,7 +160,7 @@ export function toProtoRoom(room: {
     createdAt: Date;
     updatedAt: Date;
   } | null;
-  chatRoomMembers?: Array<{
+  members?: Array<{
     id: string;
     roomId: string;
     userId: string;
@@ -181,7 +188,7 @@ export function toProtoRoom(room: {
     createdAt: room.createdAt,
     updatedAt: room.updatedAt,
     creator: toProtoUser(room.creator),
-    members: room.chatRoomMembers?.map(toProtoRoomMember) ?? [],
+    members: room.members?.map(toProtoRoomMember) ?? [],
   };
 }
 
@@ -198,15 +205,49 @@ function toPrismaRoomMemberRole(role: RoomMemberRole): PrismaRoomMemberRole | nu
   }
 }
 
+function toProtoJoinRequest(joinRequest: {
+  id: string;
+  roomId: string;
+  userId: string;
+  status: PrismaJoinRequestStatus;
+  createdAt: Date;
+  user?: {
+    id: string;
+    email: string;
+    username: string;
+    name: string | null;
+    bio: string | null;
+    avatarUrl: string | null;
+    lastLogin: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
+}): ChatRoomJoinRequest {
+  return {
+    id: joinRequest.id,
+    roomId: joinRequest.roomId,
+    userId: joinRequest.userId,
+    status: JoinRequestStatus.PENDING,
+    createdAt: joinRequest.createdAt,
+    user: toProtoUser(joinRequest.user),
+  };
+}
+
+async function isRoomAdminOrOwner(roomId: string, userId: string): Promise<boolean> {
+  const member = await prisma.chatRoomMember.findUnique({
+    where: { roomId_userId: { roomId, userId } },
+    select: { role: true },
+  });
+
+  return member?.role === PrismaRoomMemberRole.ADMIN || member?.role === PrismaRoomMemberRole.OWNER;
+}
+
 export const chatRoom = {
   getRoom: async (call: ServerUnaryCall<GetRoomRequest, ChatRoom>, callback: sendUnaryData<ChatRoom>) => {
     const roomId = normalizeRequiredString(call.request.id);
 
     if (!roomId) {
-      return callback({
-        code: status.INVALID_ARGUMENT,
-        message: 'id is required',
-      });
+      return callback({ code: status.INVALID_ARGUMENT, message: 'id is required' });
     }
 
     try {
@@ -216,21 +257,16 @@ export const chatRoom = {
       });
 
       if (!room) {
-        return callback({
-          code: status.NOT_FOUND,
-          message: `Room ${roomId} not found`,
-        });
+        return callback({ code: status.NOT_FOUND, message: `Room ${roomId} not found` });
       }
 
       return callback(null, toProtoRoom(room));
     } catch (err) {
       logger.error({ err, roomId }, 'GetRoom failed');
-      return callback({
-        code: status.INTERNAL,
-        message: 'Internal server error',
-      });
+      return callback({ code: status.INTERNAL, message: 'Internal server error' });
     }
   },
+
   searchRooms: async (
     call: ServerUnaryCall<SearchRoomsRequest, SearchRoomsResponse>,
     callback: sendUnaryData<SearchRoomsResponse>,
@@ -238,28 +274,15 @@ export const chatRoom = {
     const name = normalizeRequiredString(call.request.name);
 
     if (!name) {
-      return callback({
-        code: status.INVALID_ARGUMENT,
-        message: 'name is required',
-      });
+      return callback({ code: status.INVALID_ARGUMENT, message: 'name is required' });
     }
 
     try {
       const rooms = await prisma.chatRoom.findMany({
         where: {
           OR: [
-            {
-              name: {
-                startsWith: name,
-                mode: 'insensitive',
-              },
-            },
-            {
-              name: {
-                contains: name,
-                mode: 'insensitive',
-              },
-            },
+            { name: { startsWith: name, mode: 'insensitive' } },
+            { name: { contains: name, mode: 'insensitive' } },
           ],
         },
         orderBy: { updatedAt: 'desc' },
@@ -267,17 +290,13 @@ export const chatRoom = {
         take: 50,
       });
 
-      return callback(null, {
-        rooms: rooms.map(toProtoRoom),
-      });
+      return callback(null, { rooms: rooms.map(toProtoRoom) });
     } catch (err) {
       logger.error({ err, name }, 'SearchRooms failed');
-      return callback({
-        code: status.INTERNAL,
-        message: 'Internal server error',
-      });
+      return callback({ code: status.INTERNAL, message: 'Internal server error' });
     }
   },
+
   createRoom: async (
     call: ServerUnaryCall<CreateRoomRequest, ChatRoom>,
     callback: sendUnaryData<ChatRoom>,
@@ -294,10 +313,7 @@ export const chatRoom = {
     }
 
     if (!creatorId) {
-      return callback({
-        code: status.INVALID_ARGUMENT,
-        message: 'creatorId is required',
-      });
+      return callback({ code: status.INVALID_ARGUMENT, message: 'creatorId is required' });
     }
 
     if (call.request.description !== undefined && description === undefined) {
@@ -316,7 +332,7 @@ export const chatRoom = {
           isPrivate: call.request.isPrivate,
           creatorId,
           updatedAt: new Date(),
-          chatRoomMembers: {
+          members: {
             create: {
               id: randomUUID(),
               userId: creatorId,
@@ -330,19 +346,13 @@ export const chatRoom = {
       return callback(null, toProtoRoom(createdRoom));
     } catch (err) {
       if (isPrismaError(err) && err.code === 'P2003') {
-        return callback({
-          code: status.NOT_FOUND,
-          message: `Creator ${creatorId} not found`,
-        });
+        return callback({ code: status.NOT_FOUND, message: `Creator ${creatorId} not found` });
       }
-
       logger.error({ err, creatorId, name }, 'CreateRoom failed');
-      return callback({
-        code: status.INTERNAL,
-        message: 'Internal server error',
-      });
+      return callback({ code: status.INTERNAL, message: 'Internal server error' });
     }
   },
+
   editRoom: async (call: ServerUnaryCall<EditRoomRequest, ChatRoom>, callback: sendUnaryData<ChatRoom>) => {
     const roomId = normalizeRequiredString(call.request.id);
     const hasUpdates =
@@ -351,10 +361,7 @@ export const chatRoom = {
       call.request.isPrivate !== undefined;
 
     if (!roomId) {
-      return callback({
-        code: status.INVALID_ARGUMENT,
-        message: 'id is required',
-      });
+      return callback({ code: status.INVALID_ARGUMENT, message: 'id is required' });
     }
 
     if (!hasUpdates) {
@@ -367,21 +374,18 @@ export const chatRoom = {
     let name: string | undefined;
     if (call.request.name !== undefined) {
       const nextName = validateRoomName(call.request.name);
-
       if (!nextName) {
         return callback({
           code: status.INVALID_ARGUMENT,
           message: 'name must be between 1 and 100 characters',
         });
       }
-
       name = nextName;
     }
 
     let description: string | null | undefined;
     if (call.request.description !== undefined) {
       description = validateRoomDescription(normalizeOptionalString(call.request.description));
-
       if (description === undefined) {
         return callback({
           code: status.INVALID_ARGUMENT,
@@ -405,19 +409,13 @@ export const chatRoom = {
       return callback(null, toProtoRoom(updatedRoom));
     } catch (err) {
       if (isPrismaError(err) && err.code === 'P2025') {
-        return callback({
-          code: status.NOT_FOUND,
-          message: `Room ${roomId} not found`,
-        });
+        return callback({ code: status.NOT_FOUND, message: `Room ${roomId} not found` });
       }
-
       logger.error({ err, roomId }, 'EditRoom failed');
-      return callback({
-        code: status.INTERNAL,
-        message: 'Internal server error',
-      });
+      return callback({ code: status.INTERNAL, message: 'Internal server error' });
     }
   },
+
   deleteRoom: async (
     call: ServerUnaryCall<DeleteRoomRequest, DeleteRoomResponse>,
     callback: sendUnaryData<DeleteRoomResponse>,
@@ -425,34 +423,18 @@ export const chatRoom = {
     const roomId = normalizeRequiredString(call.request.id);
 
     if (!roomId) {
-      return callback({
-        code: status.INVALID_ARGUMENT,
-        message: 'id is required',
-      });
+      return callback({ code: status.INVALID_ARGUMENT, message: 'id is required' });
     }
 
     try {
-      await prisma.chatRoom.delete({
-        where: { id: roomId },
-      });
-
-      return callback(null, {
-        success: true,
-        id: roomId,
-      });
+      await prisma.chatRoom.delete({ where: { id: roomId } });
+      return callback(null, { success: true, id: roomId });
     } catch (err) {
       if (isPrismaError(err) && err.code === 'P2025') {
-        return callback({
-          code: status.NOT_FOUND,
-          message: `Room ${roomId} not found`,
-        });
+        return callback({ code: status.NOT_FOUND, message: `Room ${roomId} not found` });
       }
-
       logger.error({ err, roomId }, 'DeleteRoom failed');
-      return callback({
-        code: status.INTERNAL,
-        message: 'Internal server error',
-      });
+      return callback({ code: status.INTERNAL, message: 'Internal server error' });
     }
   },
 
@@ -465,10 +447,7 @@ export const chatRoom = {
     const roomId = normalizeRequiredString(call.request.roomId);
 
     if (!roomId) {
-      return callback({
-        code: status.INVALID_ARGUMENT,
-        message: 'roomId is required',
-      });
+      return callback({ code: status.INVALID_ARGUMENT, message: 'roomId is required' });
     }
 
     try {
@@ -479,22 +458,13 @@ export const chatRoom = {
       });
 
       if (members.length === 0) {
-        const room = await prisma.chatRoom.findUnique({
-          where: { id: roomId },
-          select: { id: true },
-        });
-
+        const room = await prisma.chatRoom.findUnique({ where: { id: roomId }, select: { id: true } });
         if (!room) {
-          return callback({
-            code: status.NOT_FOUND,
-            message: `Room ${roomId} not found`,
-          });
+          return callback({ code: status.NOT_FOUND, message: `Room ${roomId} not found` });
         }
       }
 
-      return callback(null, {
-        memberIds: members.map((member) => member.userId),
-      });
+      return callback(null, { memberIds: members.map((m) => m.userId) });
     } catch (err) {
       logger.error({ err, roomId }, 'GetRoomMemberIds failed');
       return callback({ code: status.INTERNAL, message: 'Internal server error' });
@@ -508,10 +478,7 @@ export const chatRoom = {
     const roomId = normalizeRequiredString(call.request.roomId);
 
     if (!roomId) {
-      return callback({
-        code: status.INVALID_ARGUMENT,
-        message: 'roomId is required',
-      });
+      return callback({ code: status.INVALID_ARGUMENT, message: 'roomId is required' });
     }
 
     try {
@@ -522,22 +489,13 @@ export const chatRoom = {
       });
 
       if (members.length === 0) {
-        const room = await prisma.chatRoom.findUnique({
-          where: { id: roomId },
-          select: { id: true },
-        });
-
+        const room = await prisma.chatRoom.findUnique({ where: { id: roomId }, select: { id: true } });
         if (!room) {
-          return callback({
-            code: status.NOT_FOUND,
-            message: `Room ${roomId} not found`,
-          });
+          return callback({ code: status.NOT_FOUND, message: `Room ${roomId} not found` });
         }
       }
 
-      return callback(null, {
-        members: members.map(toProtoRoomMember),
-      });
+      return callback(null, { members: members.map(toProtoRoomMember) });
     } catch (err) {
       logger.error({ err, roomId }, 'GetRoomMembers failed');
       return callback({ code: status.INTERNAL, message: 'Internal server error' });
@@ -552,26 +510,10 @@ export const chatRoom = {
     const userId = normalizeRequiredString(call.request.userId);
     const role = toPrismaRoomMemberRole(call.request.role);
 
-    if (!roomId) {
-      return callback({
-        code: status.INVALID_ARGUMENT,
-        message: 'roomId is required',
-      });
-    }
-
-    if (!userId) {
-      return callback({
-        code: status.INVALID_ARGUMENT,
-        message: 'userId is required',
-      });
-    }
-
-    if (!role) {
-      return callback({
-        code: status.INVALID_ARGUMENT,
-        message: 'role must be a valid RoomMemberRole',
-      });
-    }
+    if (!roomId) return callback({ code: status.INVALID_ARGUMENT, message: 'roomId is required' });
+    if (!userId) return callback({ code: status.INVALID_ARGUMENT, message: 'userId is required' });
+    if (!role)
+      return callback({ code: status.INVALID_ARGUMENT, message: 'role must be a valid RoomMemberRole' });
 
     try {
       const [room, user] = await Promise.all([
@@ -579,27 +521,11 @@ export const chatRoom = {
         prisma.user.findUnique({ where: { id: userId }, select: { id: true } }),
       ]);
 
-      if (!room) {
-        return callback({
-          code: status.NOT_FOUND,
-          message: `Room ${roomId} not found`,
-        });
-      }
-
-      if (!user) {
-        return callback({
-          code: status.NOT_FOUND,
-          message: `User ${userId} not found`,
-        });
-      }
+      if (!room) return callback({ code: status.NOT_FOUND, message: `Room ${roomId} not found` });
+      if (!user) return callback({ code: status.NOT_FOUND, message: `User ${userId} not found` });
 
       const member = await prisma.chatRoomMember.create({
-        data: {
-          id: randomUUID(),
-          roomId,
-          userId,
-          role,
-        },
+        data: { id: randomUUID(), roomId, userId, role },
         include: roomMemberInclude,
       });
 
@@ -611,7 +537,6 @@ export const chatRoom = {
           message: `User ${userId} is already a member of room ${roomId}`,
         });
       }
-
       logger.error({ err, roomId, userId }, 'AddRoomMember failed');
       return callback({ code: status.INTERNAL, message: 'Internal server error' });
     }
@@ -624,19 +549,9 @@ export const chatRoom = {
     const memberId = normalizeRequiredString(call.request.id);
     const role = toPrismaRoomMemberRole(call.request.role);
 
-    if (!memberId) {
-      return callback({
-        code: status.INVALID_ARGUMENT,
-        message: 'id is required',
-      });
-    }
-
-    if (!role) {
-      return callback({
-        code: status.INVALID_ARGUMENT,
-        message: 'role must be a valid RoomMemberRole',
-      });
-    }
+    if (!memberId) return callback({ code: status.INVALID_ARGUMENT, message: 'id is required' });
+    if (!role)
+      return callback({ code: status.INVALID_ARGUMENT, message: 'role must be a valid RoomMemberRole' });
 
     try {
       const updatedMember = await prisma.chatRoomMember.update({
@@ -648,12 +563,8 @@ export const chatRoom = {
       return callback(null, toProtoRoomMember(updatedMember));
     } catch (err) {
       if (isPrismaError(err) && err.code === 'P2025') {
-        return callback({
-          code: status.NOT_FOUND,
-          message: `Room member ${memberId} not found`,
-        });
+        return callback({ code: status.NOT_FOUND, message: `Room member ${memberId} not found` });
       }
-
       logger.error({ err, memberId }, 'EditRoomMember failed');
       return callback({ code: status.INTERNAL, message: 'Internal server error' });
     }
@@ -665,31 +576,174 @@ export const chatRoom = {
   ) => {
     const memberId = normalizeRequiredString(call.request.id);
 
-    if (!memberId) {
-      return callback({
-        code: status.INVALID_ARGUMENT,
-        message: 'id is required',
-      });
-    }
+    if (!memberId) return callback({ code: status.INVALID_ARGUMENT, message: 'id is required' });
 
     try {
-      await prisma.chatRoomMember.delete({
-        where: { id: memberId },
-      });
-
-      return callback(null, {
-        success: true,
-        id: memberId,
-      });
+      await prisma.chatRoomMember.delete({ where: { id: memberId } });
+      return callback(null, { success: true, id: memberId });
     } catch (err) {
       if (isPrismaError(err) && err.code === 'P2025') {
-        return callback({
-          code: status.NOT_FOUND,
-          message: `Room member ${memberId} not found`,
+        return callback({ code: status.NOT_FOUND, message: `Room member ${memberId} not found` });
+      }
+      logger.error({ err, memberId }, 'RemoveRoomMember failed');
+      return callback({ code: status.INTERNAL, message: 'Internal server error' });
+    }
+  },
+
+  requestJoinRoom: async (
+    call: ServerUnaryCall<RequestJoinRoomRequest, RequestJoinRoomResponse>,
+    callback: sendUnaryData<RequestJoinRoomResponse>,
+  ) => {
+    const roomId = normalizeRequiredString(call.request.roomId);
+    const userId = normalizeRequiredString(call.request.userId);
+
+    if (!roomId) return callback({ code: status.INVALID_ARGUMENT, message: 'roomId is required' });
+    if (!userId) return callback({ code: status.INVALID_ARGUMENT, message: 'userId is required' });
+
+    try {
+      const room = await prisma.chatRoom.findUnique({
+        where: { id: roomId },
+        include: roomInclude,
+      });
+
+      if (!room) return callback({ code: status.NOT_FOUND, message: `Room ${roomId} not found` });
+
+      const existingMember = await prisma.chatRoomMember.findUnique({
+        where: { roomId_userId: { roomId, userId } },
+      });
+
+      if (existingMember) {
+        return callback(null, { joined: true, pending: false, room: toProtoRoom(room) });
+      }
+
+      if (!room.isPrivate) {
+        await prisma.chatRoomMember.create({
+          data: { id: randomUUID(), roomId, userId, role: PrismaRoomMemberRole.MEMBER },
+        });
+
+        const updatedRoom = await prisma.chatRoom.findUnique({
+          where: { id: roomId },
+          include: roomInclude,
+        });
+
+        return callback(null, {
+          joined: true,
+          pending: false,
+          room: updatedRoom ? toProtoRoom(updatedRoom) : toProtoRoom(room),
         });
       }
 
-      logger.error({ err, memberId }, 'RemoveRoomMember failed');
+      await prisma.chatRoomJoinRequest.upsert({
+        where: { roomId_userId: { roomId, userId } },
+        update: { status: PrismaJoinRequestStatus.PENDING, updatedAt: new Date() },
+        create: {
+          id: randomUUID(),
+          roomId,
+          userId,
+          status: PrismaJoinRequestStatus.PENDING,
+          updatedAt: new Date(),
+        },
+      });
+
+      return callback(null, { joined: false, pending: true, room: toProtoRoom(room) });
+    } catch (err) {
+      if (isPrismaError(err) && err.code === 'P2003') {
+        return callback({ code: status.NOT_FOUND, message: `User ${userId} not found` });
+      }
+      logger.error({ err, roomId, userId }, 'RequestJoinRoom failed');
+      return callback({ code: status.INTERNAL, message: 'Internal server error' });
+    }
+  },
+
+  getPendingJoinRequests: async (
+    call: ServerUnaryCall<GetPendingJoinRequestsRequest, GetPendingJoinRequestsResponse>,
+    callback: sendUnaryData<GetPendingJoinRequestsResponse>,
+  ) => {
+    const roomId = normalizeRequiredString(call.request.roomId);
+    const actorUserId = normalizeRequiredString(call.request.actorUserId);
+
+    if (!roomId) return callback({ code: status.INVALID_ARGUMENT, message: 'roomId is required' });
+    if (!actorUserId) return callback({ code: status.INVALID_ARGUMENT, message: 'actorUserId is required' });
+
+    try {
+      const canManage = await isRoomAdminOrOwner(roomId, actorUserId);
+
+      if (!canManage) {
+        return callback({
+          code: status.PERMISSION_DENIED,
+          message: 'Only room admins can view pending join requests',
+        });
+      }
+
+      const requests = await prisma.chatRoomJoinRequest.findMany({
+        where: { roomId, status: PrismaJoinRequestStatus.PENDING },
+        include: { user: true },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      return callback(null, { requests: requests.map(toProtoJoinRequest) });
+    } catch (err) {
+      logger.error({ err, roomId, actorUserId }, 'GetPendingJoinRequests failed');
+      return callback({ code: status.INTERNAL, message: 'Internal server error' });
+    }
+  },
+
+  respondJoinRequest: async (
+    call: ServerUnaryCall<RespondJoinRequestRequest, RespondJoinRequestResponse>,
+    callback: sendUnaryData<RespondJoinRequestResponse>,
+  ) => {
+    const requestId = normalizeRequiredString(call.request.requestId);
+    const actorUserId = normalizeRequiredString(call.request.actorUserId);
+    const approve = Boolean(call.request.approve);
+
+    if (!requestId) return callback({ code: status.INVALID_ARGUMENT, message: 'requestId is required' });
+    if (!actorUserId) return callback({ code: status.INVALID_ARGUMENT, message: 'actorUserId is required' });
+
+    try {
+      const joinRequest = await prisma.chatRoomJoinRequest.findUnique({ where: { id: requestId } });
+
+      if (!joinRequest || joinRequest.status !== PrismaJoinRequestStatus.PENDING) {
+        return callback({ code: status.NOT_FOUND, message: `Join request ${requestId} not found` });
+      }
+
+      const canManage = await isRoomAdminOrOwner(joinRequest.roomId, actorUserId);
+
+      if (!canManage) {
+        return callback({
+          code: status.PERMISSION_DENIED,
+          message: 'Only room admins can process join requests',
+        });
+      }
+
+      await prisma.$transaction(async (tx) => {
+        if (approve) {
+          const existingMember = await tx.chatRoomMember.findUnique({
+            where: { roomId_userId: { roomId: joinRequest.roomId, userId: joinRequest.userId } },
+          });
+
+          if (!existingMember) {
+            await tx.chatRoomMember.create({
+              data: {
+                id: randomUUID(),
+                roomId: joinRequest.roomId,
+                userId: joinRequest.userId,
+                role: PrismaRoomMemberRole.MEMBER,
+              },
+            });
+          }
+        }
+
+        await tx.chatRoomJoinRequest.delete({ where: { id: requestId } });
+      });
+
+      const room = await prisma.chatRoom.findUnique({
+        where: { id: joinRequest.roomId },
+        include: roomInclude,
+      });
+
+      return callback(null, { success: true, requestId, room: room ? toProtoRoom(room) : undefined });
+    } catch (err) {
+      logger.error({ err, requestId, actorUserId, approve }, 'RespondJoinRequest failed');
       return callback({ code: status.INTERNAL, message: 'Internal server error' });
     }
   },

@@ -1,5 +1,5 @@
-import { Redis, type RedisOptions } from 'ioredis';
-import { RedisConfig, RedisEventHandlers } from './types.js';
+import { Redis } from 'ioredis';
+import { RedisEventHandlers } from './types.js';
 
 export function createRedisClient(url: string, handlers?: RedisEventHandlers) {
   // const { host, port, username, password, db = 0, tls = false } = config;

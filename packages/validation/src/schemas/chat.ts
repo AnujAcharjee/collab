@@ -28,6 +28,7 @@ const messageContentSchema = charMessageBaseSchema.superRefine((body, ctx) => {
 });
 
 const createMessageBodySchema = charMessageBaseSchema
+  .partial({ sender: true })
   .extend({
     type: messageTypeSchema.optional(),
   })

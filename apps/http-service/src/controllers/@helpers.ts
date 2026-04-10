@@ -1,7 +1,14 @@
 import type { ServiceError } from '@grpc/grpc-js';
 import { status } from '@grpc/grpc-js';
-import { RoomMemberRole, type ChatRoom, type ChatRoomMember, type User } from '@repo/proto';
-import type { RoomMemberRecord, RoomRecord, UserRecord } from '@repo/validation';
+import {
+  JoinRequestStatus,
+  RoomMemberRole,
+  type ChatRoom,
+  type ChatRoomJoinRequest,
+  type ChatRoomMember,
+  type User,
+} from '@repo/proto';
+import type { RoomJoinRequestRecord, RoomMemberRecord, RoomRecord, UserRecord } from '@repo/validation';
 import { AppError } from '../utils/appError.js';
 
 export function toUserRecord(user: User): UserRecord {
@@ -38,6 +45,25 @@ export function toRoomMemberRecord(member: ChatRoomMember): RoomMemberRecord {
     role: toRoomMemberRole(member.role),
     createdAt: member.createdAt?.toISOString() ?? new Date(0).toISOString(),
     user: member.user ? toUserRecord(member.user) : null,
+  };
+}
+
+function toJoinRequestStatus(status: JoinRequestStatus): RoomJoinRequestRecord['status'] {
+  switch (status) {
+    case JoinRequestStatus.PENDING:
+    default:
+      return 'PENDING';
+  }
+}
+
+export function toRoomJoinRequestRecord(joinRequest: ChatRoomJoinRequest): RoomJoinRequestRecord {
+  return {
+    id: joinRequest.id,
+    roomId: joinRequest.roomId,
+    userId: joinRequest.userId,
+    status: toJoinRequestStatus(joinRequest.status),
+    createdAt: joinRequest.createdAt?.toISOString() ?? new Date(0).toISOString(),
+    user: joinRequest.user ? toUserRecord(joinRequest.user) : null,
   };
 }
 

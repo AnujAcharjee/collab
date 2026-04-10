@@ -13,6 +13,10 @@ enum RoomMemberRole {
   OWNER = 2;
 }
 
+enum JoinRequestStatus {
+  PENDING = 0;
+}
+
 enum MessageType {
   TEXT = 0;
   IMAGE = 1;
@@ -43,6 +47,15 @@ message ChatRoomMember {
   User user = 6;
 }
 
+message ChatRoomJoinRequest {
+  string id = 1;
+  string roomId = 2;
+  string userId = 3;
+  JoinRequestStatus status = 4;
+  google.protobuf.Timestamp createdAt = 5;
+  User user = 6;
+}
+
 message ChatRoom {
   string id = 1;
   string name = 2;
@@ -69,6 +82,9 @@ service Db {
   rpc AddRoomMember(AddRoomMemberRequest) returns (ChatRoomMember);
   rpc EditRoomMember(EditRoomMemberRequest) returns (ChatRoomMember);
   rpc RemoveRoomMember(RemoveRoomMemberRequest) returns (RemoveRoomMemberResponse);
+  rpc RequestJoinRoom(RequestJoinRoomRequest) returns (RequestJoinRoomResponse);
+  rpc GetPendingJoinRequests(GetPendingJoinRequestsRequest) returns (GetPendingJoinRequestsResponse);
+  rpc RespondJoinRequest(RespondJoinRequestRequest) returns (RespondJoinRequestResponse);
 
   rpc CreateMessage(CreateMessageRequest) returns (RoomMessages);
   rpc EditMessageText(EditMessageTextRequest) returns (RoomMessages);
@@ -155,6 +171,38 @@ message RemoveRoomMemberRequest {
 message RemoveRoomMemberResponse {
   bool success = 1;
   string id = 2;
+}
+
+message RequestJoinRoomRequest {
+  string roomId = 1;
+  string userId = 2;
+}
+
+message RequestJoinRoomResponse {
+  bool joined = 1;
+  bool pending = 2;
+  ChatRoom room = 3;
+}
+
+message GetPendingJoinRequestsRequest {
+  string roomId = 1;
+  string actorUserId = 2;
+}
+
+message GetPendingJoinRequestsResponse {
+  repeated ChatRoomJoinRequest requests = 1;
+}
+
+message RespondJoinRequestRequest {
+  string requestId = 1;
+  string actorUserId = 2;
+  bool approve = 3;
+}
+
+message RespondJoinRequestResponse {
+  bool success = 1;
+  string requestId = 2;
+  ChatRoom room = 3;
 }
 
 // ------ Room messages RPCs ------

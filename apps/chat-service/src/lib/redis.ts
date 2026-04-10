@@ -1,7 +1,7 @@
-import { createRedisClient, type RedisClient, type RedisConfig, type RedisEventHandlers } from '@repo/redis';
+import { createRedisClient, type RedisClient, type RedisEventHandlers } from '@repo/redis';
 import { logger } from './logger.js';
 
-const url = process.env.REDIS_URL!
+const url = process.env.REDIS_URL!;
 
 // const config: RedisConfig = {
 //   host: process.env.REDIS_HOST || 'localhost',

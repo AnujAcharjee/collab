@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { ensureGroup, consumeAndBulkInsert } from './consumeAndBulkWrite.js';
-import { logger } from './logger.js';
+import { logger } from './lib/logger.js';
 import { Server, ServerCredentials } from '@grpc/grpc-js';
 import { DbService } from '@repo/proto';
 import { chatRoom, messages, user } from './grpc/index.js';

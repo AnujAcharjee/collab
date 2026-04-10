@@ -8,8 +8,12 @@ import type {
   AddRoomMembersRequest,
   CreateRoomInput,
   EditRoomRequest,
+  GetPendingJoinRequestsRequest,
   RemoveRoomMemberRequest,
   RoomRecord,
+  RoomJoinRequestRecord,
+  RequestJoinRoomRequest,
+  RespondJoinRequestRequest,
   SearchRoomsRequest,
 } from "@repo/validation"
 
@@ -47,9 +51,39 @@ type RemoveRoomMemberResponse = {
   message?: string
 }
 
+type RequestJoinRoomResponse = {
+  data?: {
+    room?: RoomRecord | null
+    joined?: boolean
+    pending?: boolean
+  }
+  error?: string
+  message?: string
+}
+
+type GetPendingJoinRequestsResponse = {
+  data?: {
+    requests?: RoomJoinRequestRecord[]
+  }
+  error?: string
+  message?: string
+}
+
+type RespondJoinRequestResponse = {
+  data?: {
+    success?: boolean
+    requestId?: string
+    room?: RoomRecord | null
+  }
+  error?: string
+  message?: string
+}
+
 export const useRooms = () => {
   const createRoom = useCallback(async (payload: CreateRoomInput) => {
-    const res = await axios.post<RoomResponse>(roomsApiUrl, payload)
+    const res = await axios.post<RoomResponse>(roomsApiUrl, payload, {
+      withCredentials: true,
+    })
     const room = res.data.data?.room
 
     if (!room) {
@@ -63,7 +97,10 @@ export const useRooms = () => {
     async (roomId: string, payload: EditRoomRequest["body"]) => {
       const res = await axios.patch<RoomResponse>(
         `${roomsApiUrl}/${roomId}`,
-        payload
+        payload,
+        {
+          withCredentials: true,
+        }
       )
       const room = res.data.data?.room
 
@@ -78,7 +115,10 @@ export const useRooms = () => {
 
   const deleteRoom = useCallback(async (roomId: string) => {
     const res = await axios.delete<DeleteRoomResponse>(
-      `${roomsApiUrl}/${roomId}`
+      `${roomsApiUrl}/${roomId}`,
+      {
+        withCredentials: true,
+      }
     )
     const deletedRoomId = res.data.data?.id
 
@@ -96,7 +136,10 @@ export const useRooms = () => {
     ) => {
       const res = await axios.post<AddRoomMembersResponse>(
         `${roomsApiUrl}/${roomId}/members`,
-        { usernames }
+        { usernames },
+        {
+          withCredentials: true,
+        }
       )
       const room = res.data.data?.room
 
@@ -118,7 +161,10 @@ export const useRooms = () => {
       memberId: RemoveRoomMemberRequest["params"]["memberId"]
     ) => {
       const res = await axios.delete<RemoveRoomMemberResponse>(
-        `${roomsApiUrl}/${roomId}/members/${memberId}`
+        `${roomsApiUrl}/${roomId}/members/${memberId}`,
+        {
+          withCredentials: true,
+        }
       )
       const room = res.data.data?.room
 
@@ -134,16 +180,83 @@ export const useRooms = () => {
     []
   )
 
-  const searchRooms = useCallback(async (name: SearchRoomsRequest["query"]["name"]) => {
-    const res = await axios.get<{ data?: { rooms?: RoomRecord[] } }>(
-      `${roomsApiUrl}/search`,
-      {
-        params: { name },
-      }
-    )
+  const searchRooms = useCallback(
+    async (name: SearchRoomsRequest["query"]["name"]) => {
+      const res = await axios.get<{ data?: { rooms?: RoomRecord[] } }>(
+        `${roomsApiUrl}/search`,
+        {
+          params: { name },
+          withCredentials: true,
+        }
+      )
 
-    return res.data.data?.rooms ?? []
-  }, [])
+      return res.data.data?.rooms ?? []
+    },
+    []
+  )
+
+  const requestJoinRoom = useCallback(
+    async (
+      roomId: string,
+      userId: RequestJoinRoomRequest["body"]["userId"]
+    ) => {
+      const res = await axios.post<RequestJoinRoomResponse>(
+        `${roomsApiUrl}/${roomId}/join`,
+        { userId },
+        {
+          withCredentials: true,
+        }
+      )
+
+      return {
+        room: res.data.data?.room ?? null,
+        joined: res.data.data?.joined ?? false,
+        pending: res.data.data?.pending ?? false,
+      }
+    },
+    []
+  )
+
+  const getPendingJoinRequests = useCallback(
+    async (
+      roomId: string,
+      actorUserId: GetPendingJoinRequestsRequest["query"]["actorUserId"]
+    ) => {
+      const res = await axios.get<GetPendingJoinRequestsResponse>(
+        `${roomsApiUrl}/${roomId}/join-requests`,
+        {
+          params: { actorUserId },
+          withCredentials: true,
+        }
+      )
+
+      return res.data.data?.requests ?? []
+    },
+    []
+  )
+
+  const respondJoinRequest = useCallback(
+    async (
+      roomId: string,
+      requestId: RespondJoinRequestRequest["params"]["requestId"],
+      payload: RespondJoinRequestRequest["body"]
+    ) => {
+      const res = await axios.post<RespondJoinRequestResponse>(
+        `${roomsApiUrl}/${roomId}/join-requests/${requestId}/respond`,
+        payload,
+        {
+          withCredentials: true,
+        }
+      )
+
+      return {
+        success: res.data.data?.success ?? false,
+        requestId: res.data.data?.requestId ?? requestId,
+        room: res.data.data?.room ?? null,
+      }
+    },
+    []
+  )
 
   return {
     createRoom,
@@ -152,5 +265,8 @@ export const useRooms = () => {
     addMembers,
     removeMember,
     searchRooms,
+    requestJoinRoom,
+    getPendingJoinRequests,
+    respondJoinRequest,
   }
 }

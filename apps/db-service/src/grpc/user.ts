@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { logger } from '../logger.js';
+import { logger } from '../lib/logger.js';
 import prisma from '../db.js';
 import { ServerUnaryCall, sendUnaryData, status } from '@grpc/grpc-js';
 import type {
@@ -49,18 +49,9 @@ function isPrismaError(err: unknown): err is { code: string } {
 }
 
 function resolveUserLookup(request: GetUserRequest): UserLookup | null {
-  if (request.id !== undefined) {
-    return { id: request.id };
-  }
-
-  if (request.email !== undefined) {
-    return { email: request.email.toLowerCase() };
-  }
-
-  if (request.username !== undefined) {
-    return { username: request.username };
-  }
-
+  if (request.id !== undefined) return { id: request.id };
+  if (request.email !== undefined) return { email: request.email.toLowerCase() };
+  if (request.username !== undefined) return { username: request.username };
   return null;
 }
 
@@ -68,13 +59,9 @@ export const user = {
   createUser: async (call: ServerUnaryCall<CreateUserRequest, User>, callback: sendUnaryData<User>) => {
     try {
       if (!call.request.email || !call.request.username) {
-        return callback({
-          code: status.INVALID_ARGUMENT,
-          message: 'email and username are required',
-        });
+        return callback({ code: status.INVALID_ARGUMENT, message: 'email and username are required' });
       }
 
-      const now = new Date();
       const createdUser = await prisma.user.create({
         data: {
           id: randomUUID(),
@@ -83,7 +70,7 @@ export const user = {
           name: nullableStringUpdate(call.request.name),
           bio: nullableStringUpdate(call.request.bio),
           avatarUrl: nullableStringUpdate(call.request.avatarUrl),
-          updatedAt: now,
+          updatedAt: new Date(),
         },
       });
 
@@ -95,7 +82,6 @@ export const user = {
           message: 'User with the same email or username already exists',
         });
       }
-
       logger.error(err, 'CreateUser failed');
       callback({ code: status.INTERNAL, message: 'Internal server error' });
     }
@@ -104,10 +90,7 @@ export const user = {
   editUser: async (call: ServerUnaryCall<EditUserRequest, User>, callback: sendUnaryData<User>) => {
     try {
       if (!call.request.id) {
-        return callback({
-          code: status.INVALID_ARGUMENT,
-          message: 'id is required',
-        });
+        return callback({ code: status.INVALID_ARGUMENT, message: 'id is required' });
       }
 
       const hasUpdates =
@@ -141,19 +124,14 @@ export const user = {
       callback(null, toProtoUser(updatedUser));
     } catch (err) {
       if (isPrismaError(err) && err.code === 'P2025') {
-        return callback({
-          code: status.NOT_FOUND,
-          message: `User ${call.request.id} not found`,
-        });
+        return callback({ code: status.NOT_FOUND, message: `User ${call.request.id} not found` });
       }
-
       if (isPrismaError(err) && err.code === 'P2002') {
         return callback({
           code: status.ALREADY_EXISTS,
           message: 'User with the same email or username already exists',
         });
       }
-
       logger.error(err, 'EditUser failed');
       callback({ code: status.INTERNAL, message: 'Internal server error' });
     }
@@ -165,28 +143,16 @@ export const user = {
   ) => {
     try {
       if (!call.request.id) {
-        return callback({
-          code: status.INVALID_ARGUMENT,
-          message: 'id is required',
-        });
+        return callback({ code: status.INVALID_ARGUMENT, message: 'id is required' });
       }
 
-      await prisma.user.delete({
-        where: { id: call.request.id },
-      });
+      await prisma.user.delete({ where: { id: call.request.id } });
 
-      callback(null, {
-        success: true,
-        id: call.request.id,
-      });
+      callback(null, { success: true, id: call.request.id });
     } catch (err) {
       if (isPrismaError(err) && err.code === 'P2025') {
-        return callback({
-          code: status.NOT_FOUND,
-          message: `User ${call.request.id} not found`,
-        });
+        return callback({ code: status.NOT_FOUND, message: `User ${call.request.id} not found` });
       }
-
       logger.error(err, 'DeleteUser failed');
       callback({ code: status.INTERNAL, message: 'Internal server error' });
     }
@@ -197,21 +163,13 @@ export const user = {
       const lookup = resolveUserLookup(call.request);
 
       if (!lookup) {
-        return callback({
-          code: status.INVALID_ARGUMENT,
-          message: 'Provide one of id, email, or username',
-        });
+        return callback({ code: status.INVALID_ARGUMENT, message: 'Provide one of id, email, or username' });
       }
 
-      const foundUser = await prisma.user.findFirst({
-        where: lookup,
-      });
+      const foundUser = await prisma.user.findFirst({ where: lookup });
 
       if (!foundUser) {
-        return callback({
-          code: status.NOT_FOUND,
-          message: 'User not found',
-        });
+        return callback({ code: status.NOT_FOUND, message: 'User not found' });
       }
 
       callback(null, toProtoUser(foundUser));
@@ -229,29 +187,19 @@ export const user = {
       const lookup = resolveUserLookup(call.request);
 
       if (!lookup) {
-        return callback({
-          code: status.INVALID_ARGUMENT,
-          message: 'Provide one of id, email, or username',
-        });
+        return callback({ code: status.INVALID_ARGUMENT, message: 'Provide one of id, email, or username' });
       }
 
-      const foundUser = await prisma.user.findFirst({
-        where: lookup,
-      });
+      const foundUser = await prisma.user.findFirst({ where: lookup });
 
       if (!foundUser) {
-        return callback({
-          code: status.NOT_FOUND,
-          message: 'User not found',
-        });
+        return callback({ code: status.NOT_FOUND, message: 'User not found' });
       }
 
       const rooms = await prisma.chatRoom.findMany({
         where: {
-          chatRoomMembers: {
-            some: {
-              userId: foundUser.id,
-            },
+          members: {
+            some: { userId: foundUser.id },
           },
         },
         include: roomInclude,

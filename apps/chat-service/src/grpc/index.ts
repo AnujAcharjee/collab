@@ -7,7 +7,7 @@ import {
   type GetRoomMessagesResponse,
   type RoomMessages,
 } from '@repo/proto';
-import { dbGrpcClient } from './client.js';
+import { dbGrpcClient } from '../lib/grpc.js';
 import { toChatMessageRecord, type ChatMessageRecord } from '../controllers/@helpers.js';
 
 export function getRoomMemberIds(roomId: string): Promise<string[]> {

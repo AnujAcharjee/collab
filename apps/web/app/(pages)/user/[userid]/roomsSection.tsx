@@ -28,7 +28,19 @@ import {
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import AppForm, { type FieldConfig } from "@/components/AppForm"
-import { IconSearch, IconPinned, IconVolume3 } from "@tabler/icons-react"
+import {
+  IconSearch,
+  IconPinned,
+  IconVolume3,
+  IconDotsVertical,
+  IconLock,
+  IconLockOpen2,
+} from "@tabler/icons-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { z } from "zod"
 import { useShallow } from "zustand/react/shallow"
 
@@ -37,10 +49,6 @@ import type { RoomRecord } from "@repo/validation"
 import useAppStore from "@/stores/app-store"
 import axios from "axios"
 import { useRooms } from "@/hooks/useRooms"
-
-const isPinned = true
-const isMuted = true
-const unread = false
 
 type CreateRoomFormInput = Omit<CreateRoomInput, "creatorId" | "isPrivate"> & {
   isPrivate: "true" | "false"
@@ -71,11 +79,18 @@ export default function RoomsSection() {
       upsertRoom: state.upsertRoom,
     }))
   )
-  const { searchRooms: searchRoomsRequest } = useRooms()
+  const {
+    searchRooms: searchRoomsRequest,
+    requestJoinRoom: requestJoinRoomRequest,
+  } = useRooms()
   const [searchName, setSearchName] = useState("")
   const [isSearching, setIsSearching] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [searchResults, setSearchResults] = useState<RoomRecord[]>([])
+  const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null)
+  const [pendingJoinRoomIds, setPendingJoinRoomIds] = useState<
+    Record<string, true>
+  >({})
 
   if (!user) {
     return null
@@ -115,6 +130,7 @@ export default function RoomsSection() {
   function handleRoomSelect(room: RoomRecord) {
     upsertRoom(room)
     setActiveRoom(room.id)
+    useAppStore.getState().clearRoomUnread(room.id)
   }
 
   function resetSearch() {
@@ -122,9 +138,47 @@ export default function RoomsSection() {
     setSearchResults([])
   }
 
+  async function handleJoinRoom(room: RoomRecord) {
+    if (!user || joiningRoomId) {
+      return
+    }
+
+    setJoiningRoomId(room.id)
+
+    try {
+      const result = await requestJoinRoomRequest(room.id, user.id)
+
+      if (result.joined && result.room) {
+        upsertRoom(result.room)
+      }
+
+      if (result.joined && result.room) {
+        setActiveRoom(result.room.id)
+        useAppStore.getState().clearRoomUnread(result.room.id)
+        toast.success(`Joined ${room.name}`, toastOptions)
+      } else if (result.pending) {
+        setPendingJoinRoomIds((current) => ({
+          ...current,
+          [room.id]: true,
+        }))
+        toast.success("Join request sent", toastOptions)
+      }
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? (error.response?.data?.error ??
+          error.response?.data?.message ??
+          "Unable to join room")
+        : "Unable to join room"
+
+      toast.error(message, toastOptions)
+    } finally {
+      setJoiningRoomId(null)
+    }
+  }
+
   return (
     <div className="h-svh w-full p-4">
-      <Card className="flex h-full w-full flex-col p-0 border border-primary/50">
+      <Card className="flex h-full w-full flex-col border border-primary/50 p-0">
         <CardHeader className="shadow-b flex flex-col gap-4 py-4 shadow-white/10">
           <CardTitle className="flex items-center justify-between">
             <div className="text-xl font-medium text-primary">Collab</div>
@@ -178,6 +232,14 @@ export default function RoomsSection() {
                 </div>
               )}
 
+              {isSearching && (
+                <div className="space-y-2 rounded-lg border border-border/50 bg-card/40 p-3">
+                  <div className="h-3 w-32 animate-pulse rounded bg-muted" />
+                  <div className="h-10 animate-pulse rounded bg-muted/80" />
+                  <div className="h-10 animate-pulse rounded bg-muted/70" />
+                </div>
+              )}
+
               {!isSearching && displayedRooms.length === 0 && (
                 <div className="rounded-lg border border-dashed border-border/70 px-3 py-6 text-center text-sm text-muted-foreground">
                   {isSearchMode
@@ -186,16 +248,22 @@ export default function RoomsSection() {
                 </div>
               )}
 
-              {displayedRooms.map((room) => (
-                <Fragment key={room.id}>
-                  <ListItems
-                    room={room}
-                    isActive={activeRoom === room.id}
-                    onSelect={handleRoomSelect}
-                  />
-                  <Separator className="my-2" />
-                </Fragment>
-              ))}
+              {!isSearching &&
+                displayedRooms.map((room) => (
+                  <Fragment key={room.id}>
+                    <ListItems
+                      room={room}
+                      isActive={activeRoom === room.id}
+                      onSelect={handleRoomSelect}
+                      currentUserId={user.id}
+                      isSearchMode={isSearchMode}
+                      onJoinRoom={handleJoinRoom}
+                      isJoining={joiningRoomId === room.id}
+                      hasPendingRequest={Boolean(pendingJoinRoomIds[room.id])}
+                    />
+                    <Separator className="my-2" />
+                  </Fragment>
+                ))}
             </div>
           </ScrollArea>
         </CardContent>
@@ -220,15 +288,46 @@ function ListItems({
   room,
   isActive,
   onSelect,
+  currentUserId,
+  isSearchMode,
+  onJoinRoom,
+  isJoining,
+  hasPendingRequest,
 }: {
   room: RoomRecord
   isActive: boolean
   onSelect: (room: RoomRecord) => void
+  currentUserId: string
+  isSearchMode: boolean
+  onJoinRoom: (room: RoomRecord) => Promise<void>
+  isJoining: boolean
+  hasPendingRequest: boolean
 }) {
+  const isMember = room.members.some(
+    (member) => member.userId === currentUserId
+  )
+  const isPinned = useAppStore(
+    (state) => state.roomUiOptions[room.id]?.pinned ?? false
+  )
+  const isMuted = useAppStore(
+    (state) => state.roomUiOptions[room.id]?.muted ?? false
+  )
+  const unread = useAppStore(
+    (state) => state.roomUiOptions[room.id]?.unread ?? false
+  )
+  const toggleRoomPinned = useAppStore((state) => state.toggleRoomPinned)
+  const toggleRoomMuted = useAppStore((state) => state.toggleRoomMuted)
+  const toggleRoomUnread = useAppStore((state) => state.toggleRoomUnread)
+  const [showOptions, setShowOptions] = useState(false)
+
   return (
     <div
-      onClick={() => onSelect(room)}
-      className={`flex items-center justify-between rounded-md px-3 py-2 transition-colors bg-card hover:bg-muted/50`}
+      onClick={() => {
+        if (!isSearchMode || isMember) {
+          onSelect(room)
+        }
+      }}
+      className={`relative flex items-center justify-between rounded-md bg-card px-3 py-2 transition-colors hover:bg-muted/50`}
     >
       <div className="flex items-center gap-2">
         <Avatar className="h-7 w-7 border border-border">
@@ -243,15 +342,105 @@ function ListItems({
         </Avatar>
         <span className="text-sm">{room.name}</span>
       </div>
-      <div className="flex gap-2">
+
+      <div className="flex items-center gap-2">
+        {isSearchMode &&
+          (room.isPrivate ? (
+            <IconLock size={14} className="text-muted-foreground" />
+          ) : (
+            <IconLockOpen2 size={14} className="text-muted-foreground" />
+          ))}
         {isPinned && <IconPinned />}
         {isMuted && <IconVolume3 />}
         {unread && (
           <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-xs">
-            10
+            1
           </div>
         )}
+
+        {isSearchMode && !isMember ? (
+          <Button
+            type="button"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            disabled={isJoining || hasPendingRequest}
+            onClick={(event) => {
+              event.stopPropagation()
+              void onJoinRoom(room)
+            }}
+          >
+            {isJoining
+              ? "Please wait..."
+              : hasPendingRequest
+                ? "Requested"
+                : room.isPrivate
+                  ? "Request join"
+                  : "Join"}
+          </Button>
+        ) : (
+          <button
+            type="button"
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Room options"
+            onClick={(event) => {
+              event.stopPropagation()
+              setShowOptions((current) => !current)
+            }}
+          >
+            <IconDotsVertical size={16} />
+          </button>
+        )}
       </div>
+
+      {showOptions && !isSearchMode && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-10 cursor-default bg-transparent"
+            aria-label="Close room options"
+            onClick={(event) => {
+              event.stopPropagation()
+              setShowOptions(false)
+            }}
+          />
+
+          <div
+            className="absolute top-10 right-2 z-20 w-40 rounded-md border border-border bg-popover p-1 shadow-md"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="w-full rounded-sm px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+              onClick={() => {
+                toggleRoomPinned(room.id)
+                setShowOptions(false)
+              }}
+            >
+              {isPinned ? "Unpin room" : "Pin room"}
+            </button>
+            <button
+              type="button"
+              className="w-full rounded-sm px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+              onClick={() => {
+                toggleRoomMuted(room.id)
+                setShowOptions(false)
+              }}
+            >
+              {isMuted ? "Unmute room" : "Mute room"}
+            </button>
+            <button
+              type="button"
+              className="w-full rounded-sm px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+              onClick={() => {
+                toggleRoomUnread(room.id)
+                setShowOptions(false)
+              }}
+            >
+              {unread ? "Mark as read" : "Mark as unread"}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -322,11 +511,18 @@ function DialogCreateRoom({ creatorId }: { creatorId: string }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border/80 bg-background text-base leading-none text-muted-foreground transition-colors hover:bg-muted">
-          +
-        </Button>
-      </DialogTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DialogTrigger asChild>
+            <Button className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border/80 bg-background text-base leading-none text-muted-foreground transition-colors hover:bg-muted">
+              +
+            </Button>
+          </DialogTrigger>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Create Room</p>
+        </TooltipContent>
+      </Tooltip>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

@@ -1,7 +1,11 @@
 import type { Request, Response } from 'express';
 import type { DeleteRoomRequest as DeleteRoomInput } from '@repo/validation';
-import { grpcUnary, type DeleteRoomRequest as DeleteRoomRpcRequest, type DeleteRoomResponse } from '@repo/proto';
-import { dbGrpcClient } from '../../grpc/client.js';
+import {
+  grpcUnary,
+  type DeleteRoomRequest as DeleteRoomRpcRequest,
+  type DeleteRoomResponse,
+} from '@repo/proto';
+import { dbGrpcClient } from '../../lib/grpc.js';
 import { toGrpcAppError } from '../@helpers.js';
 
 function removeRoom(id: string): Promise<void> {

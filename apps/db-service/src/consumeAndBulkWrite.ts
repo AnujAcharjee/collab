@@ -1,7 +1,7 @@
-import { redis } from './redis.js';
-import prisma, { MessageType as PrismaMessageType} from './db.js';
+import { redis } from './lib/redis.js';
+import prisma, { MessageType as PrismaMessageType } from './db.js';
 import { type ChatMessagePayload, chatMessagePayloadSchema } from '@repo/validation';
-import { logger } from './logger.js';
+import { logger } from './lib/logger.js';
 
 const STREAM_KEY = 'stream:chat-messages';
 const DLQ_STREAM_KEY = 'stream:chat-messages-dlq';
@@ -148,16 +148,21 @@ export async function consumeAndBulkInsert(): Promise<void> {
 
   try {
     await prisma.chatMessage.createMany({
-      data: parsedMessages.map(({ payload }) => ({
-        id: payload.id,
-        type: PrismaMessageType.TEXT,
-        parentId: payload.parentId ?? null,
-        userId: payload.sender,
-        roomId: payload.roomId,
-        text: payload.text ?? '',
-        attachments: payload.attachments ? JSON.parse(payload.attachments) : null,
-        createdAt: new Date(payload.createdAt),
-      })),
+      data: parsedMessages.map(({ payload }) => {
+        const createdAt = new Date(payload.createdAt);
+
+        return {
+          id: payload.id,
+          type: PrismaMessageType.TEXT,
+          parentId: payload.parentId ?? null,
+          userId: payload.sender,
+          roomId: payload.roomId,
+          text: payload.text ?? '',
+          attachments: payload.attachments ? JSON.parse(payload.attachments) : null,
+          createdAt,
+          updatedAt: createdAt,
+        };
+      }),
       skipDuplicates: true,
     });
 

@@ -47,9 +47,12 @@ type DeleteMessageResponse = {
 }
 
 export const useMessage = () => {
-  const fetchMessages = useCallback(async (roomId: string) => {
+  const fetchMessages = useCallback(async (roomId: string, userId: string) => {
     const res = await axios.get<ChatHistoryResponse>(
-      `${chatApiUrl}/rooms/${roomId}/messages`
+      `${chatApiUrl}/rooms/${roomId}/messages`,
+      {
+        withCredentials: true,
+      }
     )
 
     return res.data.data?.messages ?? []
@@ -59,7 +62,10 @@ export const useMessage = () => {
     async (payload: CreateMessageInput["body"]) => {
       const res = await axios.post<CreateMessageResponse>(
         `${chatApiUrl}/messages`,
-        payload
+        payload,
+        {
+          withCredentials: true,
+        }
       )
 
       const message = res.data.data?.message
@@ -75,7 +81,10 @@ export const useMessage = () => {
 
   const deleteMessage = useCallback(async (messageId: string) => {
     const res = await axios.delete<DeleteMessageResponse>(
-      `${chatApiUrl}/messages/${messageId}`
+      `${chatApiUrl}/messages/${messageId}`,
+      {
+        withCredentials: true,
+      }
     )
 
     return res.data.data

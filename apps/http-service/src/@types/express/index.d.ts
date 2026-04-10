@@ -1,11 +1,36 @@
 declare global {
   namespace Express {
+    interface AuthenticatedRequestCookieInfo {
+      cookieName: string;
+      accessToken: string;
+      cookies: Record<string, string>;
+      payload: {
+        sub?: string;
+        id?: string;
+        userId?: string;
+        username?: string;
+        email?: string;
+        exp?: number;
+        iat?: number;
+        nbf?: number;
+        [key: string]: unknown;
+      };
+    }
+
     interface Request {
       requestId: string;
-      user: {
+      user?: {
         id: string;
-        username: string;
-        email: string;
+        username?: string;
+        email?: string;
+      };
+      auth?: AuthenticatedRequestCookieInfo;
+      session?: {
+        oauth?: {
+          state?: string;
+          codeVerifier?: string;
+          nonce?: string;
+        };
       };
     }
   }

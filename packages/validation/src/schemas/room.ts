@@ -20,7 +20,7 @@ export const createRoomSchema = z.object({
     name: roomNameSchema,
     description: roomDescriptionSchema.optional(),
     isPrivate: z.boolean({ message: 'isPrivate must be a boolean' }),
-    creatorId: uuidSchema('creatorId must be a valid UUID'),
+    creatorId: uuidSchema('creatorId must be a valid UUID').optional(),
   }),
 });
 
@@ -78,6 +78,41 @@ export const searchRoomsSchema = z.object({
 
 export type SearchRoomsRequest = z.infer<typeof searchRoomsSchema>;
 
+export const requestJoinRoomSchema = z.object({
+  params: z.object({
+    id: uuidSchema('id must be a valid UUID'),
+  }),
+  body: z.object({
+    userId: uuidSchema('userId must be a valid UUID').optional(),
+  }),
+});
+
+export type RequestJoinRoomRequest = z.infer<typeof requestJoinRoomSchema>;
+
+export const getPendingJoinRequestsSchema = z.object({
+  params: z.object({
+    id: uuidSchema('id must be a valid UUID'),
+  }),
+  query: z.object({
+    actorUserId: uuidSchema('actorUserId must be a valid UUID').optional(),
+  }),
+});
+
+export type GetPendingJoinRequestsRequest = z.infer<typeof getPendingJoinRequestsSchema>;
+
+export const respondJoinRequestSchema = z.object({
+  params: z.object({
+    id: uuidSchema('id must be a valid UUID'),
+    requestId: uuidSchema('requestId must be a valid UUID'),
+  }),
+  body: z.object({
+    actorUserId: uuidSchema('actorUserId must be a valid UUID').optional(),
+    approve: z.boolean({ message: 'approve must be a boolean' }),
+  }),
+});
+
+export type RespondJoinRequestRequest = z.infer<typeof respondJoinRequestSchema>;
+
 const usernameSchema = z
   .string({ message: 'username must be a string' })
   .trim()
@@ -109,6 +144,19 @@ export const removeRoomMemberSchema = z.object({
 export type RemoveRoomMemberRequest = z.infer<typeof removeRoomMemberSchema>;
 
 export const roomMemberRoleSchema = z.enum(['MEMBER', 'ADMIN', 'OWNER']);
+
+export const roomJoinRequestStatusSchema = z.enum(['PENDING']);
+
+export const roomJoinRequestResponseSchema = z.object({
+  id: uuidSchema('id must be a valid UUID'),
+  roomId: uuidSchema('roomId must be a valid UUID'),
+  userId: uuidSchema('userId must be a valid UUID'),
+  status: roomJoinRequestStatusSchema,
+  createdAt: isoDatetimeSchema('createdAt must be a valid ISO datetime'),
+  user: userResponseSchema.nullable(),
+});
+
+export type RoomJoinRequestRecord = z.infer<typeof roomJoinRequestResponseSchema>;
 
 export const roomMemberResponseSchema = z.object({
   id: uuidSchema('id must be a valid UUID'),

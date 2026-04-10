@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getRoomMemberIds } from '../grpc/index.js';
-import { logger } from '../logger.js';
-import { redis } from '../redis.js';
+import { logger } from '../lib/logger.js';
+import { redis } from '../lib/redis.js';
 
 const REDIS_CHANNEL = 'chat-messages';
 const CHAT_STREAM = 'stream:chat-messages';

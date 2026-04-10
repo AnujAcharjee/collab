@@ -11,8 +11,12 @@ import {
   type GetUserRequest as GetUserRpcRequest,
   type User,
 } from '@repo/proto';
-import type { AddRoomMembersRequest as AddRoomMembersInput, RoomMemberRecord, RoomRecord } from '@repo/validation';
-import { dbGrpcClient } from '../../grpc/client.js';
+import type {
+  AddRoomMembersRequest as AddRoomMembersInput,
+  RoomMemberRecord,
+  RoomRecord,
+} from '@repo/validation';
+import { dbGrpcClient } from '../../lib/grpc.js';
 import { toGrpcAppError, toRoomMemberRecord, toRoomRecord } from '../@helpers.js';
 
 function fetchRoom(id: string): Promise<RoomRecord> {
@@ -52,9 +56,9 @@ function addMember(roomId: string, userId: string): Promise<RoomMemberRecord | n
 export const addRoomMembers = async (req: Request, res: Response) => {
   const { id: roomId } = req.params as AddRoomMembersInput['params'];
   const { usernames } = req.body as AddRoomMembersInput['body'];
-  const normalizedUsernames = [...new Set(usernames.map((username) => username.trim().replace(/^@+/, '')))].filter(
-    Boolean,
-  );
+  const normalizedUsernames = [
+    ...new Set(usernames.map((username) => username.trim().replace(/^@+/, ''))),
+  ].filter(Boolean);
 
   const users = await Promise.all(normalizedUsernames.map((username) => fetchUserByUsername(username)));
   const createdMembers = await Promise.all(users.map((user) => addMember(roomId, user.id)));

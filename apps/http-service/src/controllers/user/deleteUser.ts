@@ -1,7 +1,11 @@
 import type { Request, Response } from 'express';
 import type { DeleteUserRequest as DeleteUserInput } from '@repo/validation';
-import { grpcUnary, type DeleteUserRequest as DeleteUserRpcRequest, type DeleteUserResponse } from '@repo/proto';
-import { dbGrpcClient } from '../../grpc/client.js';
+import {
+  grpcUnary,
+  type DeleteUserRequest as DeleteUserRpcRequest,
+  type DeleteUserResponse,
+} from '@repo/proto';
+import { dbGrpcClient } from '../../lib/grpc.js';
 import { toGrpcAppError } from '../@helpers.js';
 
 function removeUser(id: string): Promise<void> {

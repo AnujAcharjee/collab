@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import type { CreateUserInput, UserRecord } from '@repo/validation';
 import { grpcUnary, type CreateUserRequest, type User } from '@repo/proto';
-import { dbGrpcClient } from '../../grpc/client.js';
+import { dbGrpcClient } from '../../lib/grpc.js';
 import { toGrpcAppError, toUserRecord } from '../@helpers.js';
 
 function pushUser(input: CreateUserInput): Promise<UserRecord> {

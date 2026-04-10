@@ -3,9 +3,7 @@ import axios from "axios"
 import { useCallback } from "react"
 import type { RoomRecord, UserRecord } from "@repo/validation"
 import { useShallow } from "zustand/react/shallow"
-
-const httpSrvUrl = process.env.NEXT_PUBLIC_HHTP_SRV_URL
-const usersApiUrl = `${httpSrvUrl}/api/v1/users`
+import { usersApiUrl } from "@/constants/apiUrls"
 
 export const useHydrate = (userid: string) => {
   const { user, rooms, hasHydrated, hydrateUserState, resetAppState } =
@@ -27,7 +25,9 @@ export const useHydrate = (userid: string) => {
         resetAppState()
       }
 
-      const res = await axios.get(`${usersApiUrl}/hydrate/${userid}`)
+      const res = await axios.get(`${usersApiUrl}/hydrate/${userid}`, {
+        withCredentials: true,
+      })
       hydrateUserState({
         user: res.data.data.user as UserRecord,
         rooms: res.data.data.rooms as RoomRecord[],

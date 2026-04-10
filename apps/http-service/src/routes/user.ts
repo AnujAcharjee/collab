@@ -13,11 +13,14 @@ import { editUser } from '../controllers/user/editUser.js';
 import { getUser } from '../controllers/user/getUser.js';
 import { hydrateUser } from '../controllers/user/hydrateUser.js';
 import { issueTicket } from '../controllers/user/issueTicket.js';
+import { authentication, oauthCallBack } from '../controllers/user/authentication.js';
 import { validateRequest } from '../middleware/validation.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const userRouter: Router = Router();
 
+userRouter.get('/auth/pramaan', asyncHandler(authentication));
+userRouter.get('/auth/pramaan/callback', asyncHandler(oauthCallBack));
 userRouter.post('/', validateRequest(createUserSchema), asyncHandler(createUser));
 userRouter.get('/hydrate', validateRequest(hydrateUserSchema), asyncHandler(hydrateUser));
 userRouter.get('/hydrate/:id', validateRequest(hydrateUserSchema), asyncHandler(hydrateUser));

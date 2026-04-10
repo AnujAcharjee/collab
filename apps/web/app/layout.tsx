@@ -5,6 +5,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 import { Toaster } from "@/components/ui/sonner"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 const raleway = Raleway({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -64,7 +65,7 @@ export default function RootLayout({
     >
       <body className="flex min-h-screen items-center justify-center bg-background">
         <ThemeProvider>
-          {children}
+          <TooltipProvider>{children}</TooltipProvider>
           <Toaster />
         </ThemeProvider>
       </body>

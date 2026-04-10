@@ -8,9 +8,9 @@ import {
   type RemoveRoomMemberResponse,
 } from '@repo/proto';
 import { v4 as uuidv4 } from 'uuid';
-import { dbGrpcClient } from '../../grpc/client.js';
-import { logger } from '../../logger.js';
-import { redis } from '../../redis.js';
+import { dbGrpcClient } from '../../lib/grpc.js';
+import { logger } from '../../lib/logger.js';
+import { redis } from '../../lib/redis.js';
 import { toGrpcAppError, toRoomRecord } from '../@helpers.js';
 
 const REDIS_CHANNEL = 'chat-messages';

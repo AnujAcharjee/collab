@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import type { GetRoomRequest, RoomRecord } from '@repo/validation';
 import { grpcUnary, type ChatRoom, type GetRoomRequest as GetRoomRpcRequest } from '@repo/proto';
-import { dbGrpcClient } from '../../grpc/client.js';
+import { dbGrpcClient } from '../../lib/grpc.js';
 import { toGrpcAppError, toRoomRecord } from '../@helpers.js';
 
 function fetchRoom(id: string): Promise<RoomRecord> {

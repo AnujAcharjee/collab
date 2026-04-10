@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import type { EditUserRequest as EditUserInput, UserRecord } from '@repo/validation';
 import { grpcUnary, type EditUserRequest as EditUserRpcRequest, type User } from '@repo/proto';
-import { dbGrpcClient } from '../../grpc/client.js';
+import { dbGrpcClient } from '../../lib/grpc.js';
 import { toGrpcAppError, toUserRecord } from '../@helpers.js';
 
 function updateUser(id: string, input: EditUserInput['body']): Promise<UserRecord> {

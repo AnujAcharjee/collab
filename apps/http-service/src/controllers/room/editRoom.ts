@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import type { EditRoomRequest as EditRoomInput, RoomRecord } from '@repo/validation';
 import { grpcUnary, type ChatRoom, type EditRoomRequest as EditRoomRpcRequest } from '@repo/proto';
-import { dbGrpcClient } from '../../grpc/client.js';
+import { dbGrpcClient } from '../../lib/grpc.js';
 import { toGrpcAppError, toRoomRecord } from '../@helpers.js';
 
 function updateRoom(id: string, input: EditRoomInput['body']): Promise<RoomRecord> {

@@ -11,7 +11,7 @@ import {
 } from "@repo/validation"
 import axios from "axios"
 import { handlers } from "./handlers"
-import { usersApiUrl } from '@/constants/apiUrls'
+import { usersApiUrl } from "@/constants/apiUrls"
 
 const wsUrl: string = process.env.NEXT_PUBLIC_WS_SRV_URL!
 type WsTicketUser = IssueTicketRequest["body"]
@@ -60,7 +60,13 @@ class Ws {
     // get ws ticket
     let ticket: string | null = null
     try {
-      const res = await axios.post<IssueTicketResponse>(`${usersApiUrl}/ws-ticket`, user)
+      const res = await axios.post<IssueTicketResponse>(
+        `${usersApiUrl}/ws-ticket`,
+        user,
+        {
+          withCredentials: true,
+        }
+      )
 
       ticket = res.data.ticket
     } catch {

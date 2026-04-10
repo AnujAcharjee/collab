@@ -13,6 +13,12 @@ export type RoomMessage = ChatMessagePayload & {
   isDeleted?: boolean
 }
 
+export type RoomUiOptions = {
+  pinned: boolean
+  muted: boolean
+  unread: boolean
+}
+
 /**
  * Here only User and rooms are stored in Indexed Db
  */
@@ -25,9 +31,14 @@ interface UserState {
 interface RoomsState {
   rooms: RoomRecord[]
   activeRoom: string | null
+  roomUiOptions: Record<string, RoomUiOptions>
   setRooms: (rooms: RoomRecord[]) => void
   upsertRoom: (room: RoomRecord) => void
   removeRoom: (roomId: string) => void
+  toggleRoomPinned: (roomId: string) => void
+  toggleRoomMuted: (roomId: string) => void
+  toggleRoomUnread: (roomId: string) => void
+  clearRoomUnread: (roomId: string) => void
   updateRoomLastMessage: (roomId: string, message: ChatMessagePayload) => void
   updateRoomInfo: (roomId: string, data: Partial<RoomRecord>) => void
   setActiveRoom: (roomId: string | null) => void
@@ -102,10 +113,23 @@ const createUserSlice: StateCreator<AppState, [], [], UserState> = (set) => ({
 const createRoomsSlice: StateCreator<AppState, [], [], RoomsState> = (set) => ({
   rooms: [],
   activeRoom: null,
+  roomUiOptions: {},
   setRooms: (rooms) =>
     set((state) => ({
       rooms,
       activeRoom: getNextActiveRoomId(rooms, state.activeRoom),
+      roomUiOptions: rooms.reduce<Record<string, RoomUiOptions>>(
+        (acc, room) => {
+          acc[room.id] = state.roomUiOptions[room.id] ?? {
+            pinned: false,
+            muted: false,
+            unread: false,
+          }
+
+          return acc
+        },
+        {}
+      ),
     })),
   upsertRoom: (room) =>
     set((state) => {
@@ -121,17 +145,72 @@ const createRoomsSlice: StateCreator<AppState, [], [], RoomsState> = (set) => ({
       return {
         rooms,
         activeRoom: state.activeRoom ?? room.id,
+        roomUiOptions: {
+          ...state.roomUiOptions,
+          [room.id]: state.roomUiOptions[room.id] ?? {
+            pinned: false,
+            muted: false,
+            unread: false,
+          },
+        },
       }
     }),
   removeRoom: (roomId) =>
     set((state) => {
       const rooms = state.rooms.filter((room) => room.id !== roomId)
+      const roomUiOptions = { ...state.roomUiOptions }
+      delete roomUiOptions[roomId]
 
       return {
         rooms,
         activeRoom: getNextActiveRoomId(rooms, state.activeRoom),
+        roomUiOptions,
       }
     }),
+  toggleRoomPinned: (roomId) =>
+    set((state) => ({
+      roomUiOptions: {
+        ...state.roomUiOptions,
+        [roomId]: {
+          pinned: !(state.roomUiOptions[roomId]?.pinned ?? false),
+          muted: state.roomUiOptions[roomId]?.muted ?? false,
+          unread: state.roomUiOptions[roomId]?.unread ?? false,
+        },
+      },
+    })),
+  toggleRoomMuted: (roomId) =>
+    set((state) => ({
+      roomUiOptions: {
+        ...state.roomUiOptions,
+        [roomId]: {
+          pinned: state.roomUiOptions[roomId]?.pinned ?? false,
+          muted: !(state.roomUiOptions[roomId]?.muted ?? false),
+          unread: state.roomUiOptions[roomId]?.unread ?? false,
+        },
+      },
+    })),
+  toggleRoomUnread: (roomId) =>
+    set((state) => ({
+      roomUiOptions: {
+        ...state.roomUiOptions,
+        [roomId]: {
+          pinned: state.roomUiOptions[roomId]?.pinned ?? false,
+          muted: state.roomUiOptions[roomId]?.muted ?? false,
+          unread: !(state.roomUiOptions[roomId]?.unread ?? false),
+        },
+      },
+    })),
+  clearRoomUnread: (roomId) =>
+    set((state) => ({
+      roomUiOptions: {
+        ...state.roomUiOptions,
+        [roomId]: {
+          pinned: state.roomUiOptions[roomId]?.pinned ?? false,
+          muted: state.roomUiOptions[roomId]?.muted ?? false,
+          unread: false,
+        },
+      },
+    })),
 
   updateRoomLastMessage: (roomId, message) =>
     set((state) => ({
@@ -203,6 +282,7 @@ const createAppActionsSlice: StateCreator<AppState, [], [], AppActions> = (
       user: null,
       rooms: [],
       activeRoom: null,
+      roomUiOptions: {},
       messages: {},
     }),
 })
@@ -225,6 +305,7 @@ const useAppStore = create<AppState>()(
           user: state.user,
           rooms: state.rooms,
           activeRoom: state.activeRoom,
+          roomUiOptions: state.roomUiOptions,
         }),
         onRehydrateStorage: () => (state) => {
           state?.setHasHydrated(true)

@@ -1,7 +1,12 @@
 import type { Request, Response } from 'express';
 import type { RoomRecord, SearchRoomsRequest } from '@repo/validation';
-import { grpcUnary, type ChatRoom, type SearchRoomsRequest as SearchRoomsRpcRequest, type SearchRoomsResponse } from '@repo/proto';
-import { dbGrpcClient } from '../../grpc/client.js';
+import {
+  grpcUnary,
+  type ChatRoom,
+  type SearchRoomsRequest as SearchRoomsRpcRequest,
+  type SearchRoomsResponse,
+} from '@repo/proto';
+import { dbGrpcClient } from '../../lib/grpc.js';
 import { toGrpcAppError, toRoomRecord } from '../@helpers.js';
 
 function fetchRoomsByName(name: string): Promise<RoomRecord[]> {

@@ -5,7 +5,7 @@ import {
   type GetUserRequest as HydrateUserRpcRequest,
   type HydrateUserResponse,
 } from '@repo/proto';
-import { dbGrpcClient } from '../../grpc/client.js';
+import { dbGrpcClient } from '../../lib/grpc.js';
 import { toGrpcAppError, toRoomRecord, toUserRecord } from '../@helpers.js';
 import { AppError } from '../../utils/appError.js';
 

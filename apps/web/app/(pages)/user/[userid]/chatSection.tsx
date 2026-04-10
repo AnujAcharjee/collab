@@ -49,6 +49,7 @@ import type {
   AddRoomMembersRequest,
   CreateMessageInput,
   EditRoomRequest,
+  RoomJoinRequestRecord,
   RoomMemberRecord,
   RoomRecord,
 } from "@repo/validation"
@@ -166,7 +167,11 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
       setIsLoading(true)
 
       try {
-        const messages = (await fetchMessages(roomId)).map(toRoomMessage)
+        if (!user?.id) {
+          return
+        }
+
+        const messages = (await fetchMessages(roomId, user.id)).map(toRoomMessage)
 
         if (isCancelled) {
           return
@@ -273,7 +278,11 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
 
     try {
       await deleteMessageRequest(messageId)
-      const refreshedMessages = (await fetchMessages(roomId)).map(toRoomMessage)
+      if (!user?.id) {
+        return
+      }
+
+      const refreshedMessages = (await fetchMessages(roomId, user.id)).map(toRoomMessage)
 
       setMessages(roomId, refreshedMessages)
 
@@ -814,15 +823,70 @@ function RoomMembersPanel({
   canManageRoom: boolean
   onShowChat: () => void
 }) {
-  const { addMembers: addMembersRequest, removeMember: removeMemberRequest } =
-    useRooms()
+  const {
+    addMembers: addMembersRequest,
+    removeMember: removeMemberRequest,
+    getPendingJoinRequests: getPendingJoinRequestsRequest,
+    respondJoinRequest: respondJoinRequestRequest,
+  } = useRooms()
   const [addMembersOpen, setAddMembersOpen] = useState(false)
   const [removeTarget, setRemoveTarget] = useState<RoomMemberRecord | null>(
+    null
+  )
+  const [pendingRequests, setPendingRequests] = useState<RoomJoinRequestRecord[]>(
+    []
+  )
+  const [isLoadingPending, setIsLoadingPending] = useState(false)
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(
     null
   )
   const [usernamesInput, setUsernamesInput] = useState("")
   const [isAdding, setIsAdding] = useState(false)
   const [isRemoving, setIsRemoving] = useState(false)
+
+  useEffect(() => {
+    if (!canManageRoom || !currentUserId) {
+      setPendingRequests([])
+      return
+    }
+
+    let isCancelled = false
+
+    const fetchPendingRequests = async () => {
+      setIsLoadingPending(true)
+
+      try {
+        const requests = await getPendingJoinRequestsRequest(
+          room.id,
+          currentUserId
+        )
+
+        if (!isCancelled) {
+          setPendingRequests(requests)
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          const message = axios.isAxiosError(error)
+            ? (error.response?.data?.error ??
+              error.response?.data?.message ??
+              "Unable to load join requests")
+            : "Unable to load join requests"
+
+          toast.error(message, toastOptions)
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingPending(false)
+        }
+      }
+    }
+
+    void fetchPendingRequests()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [canManageRoom, currentUserId, getPendingJoinRequestsRequest, room.id])
 
   async function handleAddMembers() {
     const usernames = usernamesInput
@@ -895,6 +959,43 @@ function RoomMembersPanel({
     }
   }
 
+  async function handleRespondJoinRequest(requestId: string, approve: boolean) {
+    if (!currentUserId || processingRequestId) {
+      return
+    }
+
+    setProcessingRequestId(requestId)
+
+    try {
+      const result = await respondJoinRequestRequest(room.id, requestId, {
+        actorUserId: currentUserId,
+        approve,
+      })
+
+      if (result.room) {
+        useAppStore.getState().upsertRoom(result.room)
+      }
+
+      setPendingRequests((current) =>
+        current.filter((request) => request.id !== requestId)
+      )
+      toast.success(
+        approve ? "Join request approved" : "Join request rejected",
+        toastOptions
+      )
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? (error.response?.data?.error ??
+          error.response?.data?.message ??
+          "Unable to process join request")
+        : "Unable to process join request"
+
+      toast.error(message, toastOptions)
+    } finally {
+      setProcessingRequestId(null)
+    }
+  }
+
   return (
     <>
       <div className="flex h-full flex-col">
@@ -928,6 +1029,74 @@ function RoomMembersPanel({
 
         <ScrollArea className="h-full">
           <div className="space-y-2 px-4 py-3 sm:px-6">
+            {canManageRoom && (
+              <div className="rounded-lg border border-border/40 bg-card/40 p-3">
+                <div className="mb-2 text-xs font-medium text-muted-foreground">
+                  Pending join requests
+                </div>
+
+                {isLoadingPending && (
+                  <div className="text-xs text-muted-foreground">
+                    Loading requests...
+                  </div>
+                )}
+
+                {!isLoadingPending && pendingRequests.length === 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    No pending requests
+                  </div>
+                )}
+
+                {!isLoadingPending &&
+                  pendingRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="mb-2 flex items-center justify-between rounded-md border border-border/40 px-2 py-2 last:mb-0"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Avatar className="h-7 w-7 border border-border">
+                          <AvatarImage
+                            src={request.user?.avatarUrl ?? undefined}
+                            alt={request.user?.username ?? "User"}
+                          />
+                          <AvatarFallback className="text-xs">
+                            {request.user?.username?.[0] ?? "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="truncate text-sm">
+                          {request.user?.username ?? "Unknown user"}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                          disabled={processingRequestId === request.id}
+                          onClick={() =>
+                            void handleRespondJoinRequest(request.id, false)
+                          }
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          disabled={processingRequestId === request.id}
+                          onClick={() =>
+                            void handleRespondJoinRequest(request.id, true)
+                          }
+                        >
+                          Approve
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+
             {room.members.map((member) => {
               const displayName = member.user?.username ?? "Unknown user"
               const canRemove =
