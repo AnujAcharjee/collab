@@ -1,14 +1,13 @@
 # Collab
 
-Collab is a multilingual real-time chat app built as a monorepo with a microservice-style architecture. Services communicate over HTTP, WebSocket, gRPC, and Redis — each one scoped to a single responsibility.
-
-## Stack
-
-`Next.js` · `WebSocket` · `gRPC` · `Redis Pub/Sub + Streams` · `PostgreSQL` · `Prisma`
+Collab is a real-time collaboration platform built as a monorepo with a microservice-style architecture. It enables users to communicate via messaging and video call. Services communicate over HTTP, WebSocket, gRPC, and Redis — each one scoped to a single responsibility.
 
 ## Overview
 
 The idea is simple: split the work across focused services so each piece stays small, testable, and independently scalable.
+
+- **Messaging (current)** — Real-time chat with scalable backend architecture.
+- **Video Collaboration (coming soon)** — Live video communication features.
 
 - **`web`** — Next.js frontend. Auth, room listing, chat UI.
 - **`http-service`** — REST APIs for users and rooms. Also issues short-lived WebSocket tickets.
@@ -20,7 +19,7 @@ The idea is simple: split the work across focused services so each piece stays s
 
 ![System Design](./system-design.svg)
 
-## Request Flow
+## Request Flow (Messaging)
 
 1. Client calls `http-service` to get a short-lived WebSocket ticket.
 2. Client connects to `ws-service` using that ticket.
