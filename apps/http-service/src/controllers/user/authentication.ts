@@ -14,8 +14,8 @@ import { logger } from '../../lib/logger.js';
 import { toUserRecord } from '../@helpers.js';
 
 const PRAMAAN_SERVER_URL = process.env.PRAMAAN_SERVER_URL ?? 'https://pramaan.anujacharjee.com';
-const HTTP_SERVICE_URL = process.env.HTTP_SERVICE_URL ?? `http://localhost:${process.env.PORT ?? '3003'}`;
-const WEB_APP_URL = process.env.WEB_APP_URL ?? 'http://localhost:3000';
+const HTTP_SERVICE_URL = process.env.HTTP_SERVICE_URL ?? `http://127.0.0.1:${process.env.PORT ?? '3003'}`;
+const WEB_APP_URL = process.env.WEB_APP_URL ?? 'http://127.0.0.1:3000';
 const CLIENT_ID =
   process.env.PRAMAAN_CLIENT_ID ??
   (() => {

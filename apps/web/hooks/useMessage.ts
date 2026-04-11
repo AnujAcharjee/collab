@@ -51,6 +51,9 @@ export const useMessage = () => {
     const res = await axios.get<ChatHistoryResponse>(
       `${chatApiUrl}/rooms/${roomId}/messages`,
       {
+        params:{
+          limit: 50,
+        },
         withCredentials: true,
       }
     )

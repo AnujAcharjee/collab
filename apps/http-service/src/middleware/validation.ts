@@ -2,14 +2,6 @@ import { ZodError, type ZodType } from '@repo/validation';
 import type { NextFunction, Request, Response } from 'express';
 import { AppError } from '../utils/appError.js';
 
-function replaceObjectValues(target: Record<string, unknown>, source: Record<string, unknown>) {
-  for (const key of Object.keys(target)) {
-    delete target[key];
-  }
-
-  Object.assign(target, source);
-}
-
 export const validateRequest = (schema: ZodType) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     try {
@@ -26,18 +18,19 @@ export const validateRequest = (schema: ZodType) => {
         user?: Request['user'];
       };
 
+      // req.query and req.params are getter-only properties on IncomingMessage — direct
+      // assignment throws a TypeError. Mutate the existing object instead of replacing it.
+      if (parsed.query) {
+        Object.assign(req.query, parsed.query);
+      }
+      if (parsed.params) {
+        Object.assign(req.params, parsed.params);
+      }
+
+      // req.body and req.user are plain writable properties, direct assignment is fine.
       if (parsed.body) {
         req.body = parsed.body;
       }
-
-      if (parsed.query) {
-        replaceObjectValues(req.query as Record<string, unknown>, parsed.query as Record<string, unknown>);
-      }
-
-      if (parsed.params) {
-        req.params = parsed.params;
-      }
-
       if (parsed.user) {
         req.user = parsed.user;
       }

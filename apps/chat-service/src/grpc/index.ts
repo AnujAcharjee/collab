@@ -34,7 +34,7 @@ export function deleteMessage(id: string): Promise<DeleteMessageResponse> {
   return grpcUnary<DeleteMessageResponse>((callback) => dbGrpcClient.deleteMessage({ id }, callback));
 }
 
-export function getRoomMessages(roomId: string, limit = 80): Promise<ChatMessageRecord[]> {
+export function getRoomMessages(roomId: string, limit = 100): Promise<ChatMessageRecord[]> {
   return grpcUnary<GetRoomMessagesResponse>((callback) =>
     dbGrpcClient.getRoomMessages({ roomId, limit }, callback),
   ).then((response) => response.messages.map(toChatMessageRecord));

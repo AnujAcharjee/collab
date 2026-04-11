@@ -6,11 +6,8 @@ import { toHttpError } from './@helpers.js';
 
 export const getRoomMessages = async (req: Request, res: Response) => {
   const { roomId } = req.params as GetRoomMessagesInput['params'];
+  const { limit } = req.query as GetRoomMessagesInput['query'];
   const userId = req.user?.id;
-  const limit =
-    typeof req.query.limit === 'string' ? Number(req.query.limit)
-    : typeof req.query.limit === 'number' ? req.query.limit
-    : undefined;
 
   if (!userId) {
     return res.status(401).json({
