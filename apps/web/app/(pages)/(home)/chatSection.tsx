@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import useAppStore from "@/stores/app-store"
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card"
@@ -55,9 +55,10 @@ import type {
 } from "@repo/validation"
 import axios from "axios"
 import type { RoomMessage } from "@/stores/app-store"
-import { useMessage, type ChatHistoryMessage } from "@/hooks/useMessage"
+import { type ChatHistoryMessage } from "@/hooks/useMessage"
 import { useRooms } from "@/hooks/useRooms"
 import { z } from "zod"
+import { useChatSection } from "@/hooks/useChatSection"
 
 type MessageBubbleParent = {
   id: string
@@ -86,138 +87,30 @@ const editRoomFormSchema = z.object({
 })
 
 export default function ChatSection({ room }: { room: RoomRecord | null }) {
-  const roomId = room?.id ?? null
-  const setActiveRoom = useAppStore((state) => state.setActiveRoom)
-  const user = useAppStore((state) => state.user)
-  const addMessage = useAppStore((state) => state.addMessage)
-  const setMessages = useAppStore((state) => state.setMessages)
   const {
-    createMessage: createMessageRequest,
-    deleteMessage: deleteMessageRequest,
-    fetchMessages,
-  } = useMessage()
-  const roomMessages = useAppStore((state) =>
-    roomId
-      ? (state.messages[roomId] ?? EMPTY_ROOM_MESSAGES)
-      : EMPTY_ROOM_MESSAGES
-  )
-  const updateRoomLastMessage = useAppStore(
-    (state) => state.updateRoomLastMessage
-  )
-  const currentRoomMember = room?.members.find(
-    (member) => member.userId === user?.id
-  )
-  const canManageRoom = Boolean(
-    user?.id &&
-    (currentRoomMember?.role === "ADMIN" ||
-      currentRoomMember?.role === "OWNER" ||
-      room?.creatorId === user.id)
-  )
-
-  const [draft, setDraft] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [isSending, setIsSending] = useState(false)
-  const [replyingTo, setReplyingTo] = useState<RoomMessage | null>(null)
-  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(
-    null
-  )
-  const [showMembersPanel, setShowMembersPanel] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement | null>(null)
-  const roomMessagesById = new Map(
-    roomMessages.map((message) => [message.id, message])
-  )
-
-  function getMessageAuthorName(message: RoomMessage) {
-    return message.sender === user?.id
-      ? (user?.username ?? "You")
-      : (message.senderUsername ?? room?.creator?.username ?? "Room member")
-  }
-
-  function getMessageAuthorAvatar(message: RoomMessage) {
-    return message.sender === user?.id
-      ? (user?.avatarUrl ?? undefined)
-      : (message.senderAvatarUrl ?? room?.creator?.avatarUrl ?? undefined)
-  }
-
-  function getMessageBody(
-    message?: Pick<RoomMessage, "text" | "isDeleted"> | null
-  ) {
-    if (!message) {
-      return "Original message unavailable"
-    }
-
-    if (message.isDeleted) {
-      return "Message deleted"
-    }
-
-    return message.text?.trim() ? message.text : "Attachment"
-  }
-
-  useEffect(() => {
-    if (!roomId) {
-      setDraft("")
-      setReplyingTo(null)
-      setShowMembersPanel(false)
-      return
-    }
-
-    let isCancelled = false
-
-    const loadMessages = async () => {
-      setIsLoading(true)
-
-      try {
-        if (!user?.id) {
-          return
-        }
-
-        const messages = (await fetchMessages(roomId, user.id)).map(toRoomMessage)
-
-        if (isCancelled) {
-          return
-        }
-
-        setMessages(roomId, messages)
-      } catch (error) {
-        if (!isCancelled) {
-          const message = axios.isAxiosError(error)
-            ? (error.response?.data?.error ??
-              error.response?.data?.message ??
-              "Unable to load messages")
-            : "Unable to load messages"
-
-          toast.error(message, toastOptions)
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsLoading(false)
-        }
-      }
-    }
-
-    void loadMessages()
-
-    return () => {
-      isCancelled = true
-    }
-  }, [fetchMessages, roomId, setMessages])
-
-  useEffect(() => {
-    setShowMembersPanel(false)
-  }, [roomId])
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
-  }, [roomId, roomMessages])
-
-  useEffect(() => {
-    if (
-      replyingTo &&
-      !roomMessages.some((message) => message.id === replyingTo.id)
-    ) {
-      setReplyingTo(null)
-    }
-  }, [replyingTo, roomMessages])
+    user,
+    setActiveRoom,
+    canManageRoom,
+    roomMessages,
+    roomMessagesById,
+    isLoading,
+    messagesEndRef,
+    replyingTo,
+    setReplyingTo,
+    clearReply,
+    showMembersPanel,
+    toggleMembersPanel,
+    closeMembersPanel,
+    deletingMessageId,
+    handleDeleteMessage,
+    draft,
+    setDraft,
+    isSending,
+    sendMessage,
+    getAuthorName,
+    getAuthorAvatar,
+    getMessageBody,
+  } = useChatSection(room)
 
   if (!room) {
     return (
@@ -229,85 +122,6 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
         </Card>
       </div>
     )
-  }
-
-  const activeRoom = room
-
-  async function sendMessage() {
-    const text = draft.trim()
-
-    if (!user?.id || !text || isSending) {
-      return
-    }
-
-    setIsSending(true)
-
-    try {
-      const payload: CreateMessageInput["body"] = {
-        sender: user.id,
-        roomId: activeRoom.id,
-        text,
-        parentId: replyingTo?.id,
-      }
-
-      const message = await createMessageRequest(payload)
-
-      addMessage(activeRoom.id, toRoomMessage(message))
-      setDraft("")
-      setReplyingTo(null)
-      updateRoomLastMessage(activeRoom.id, toRoomPreviewMessage(message))
-    } catch (error) {
-      const message = axios.isAxiosError(error)
-        ? (error.response?.data?.error ??
-          error.response?.data?.message ??
-          "Unable to send message")
-        : "Unable to send message"
-
-      toast.error(message, toastOptions)
-    } finally {
-      setIsSending(false)
-    }
-  }
-
-  async function handleDeleteMessage(messageId: string) {
-    if (!roomId || deletingMessageId) {
-      return
-    }
-
-    setDeletingMessageId(messageId)
-
-    try {
-      await deleteMessageRequest(messageId)
-      if (!user?.id) {
-        return
-      }
-
-      const refreshedMessages = (await fetchMessages(roomId, user.id)).map(toRoomMessage)
-
-      setMessages(roomId, refreshedMessages)
-
-      const lastMessage = refreshedMessages[refreshedMessages.length - 1]
-
-      if (lastMessage) {
-        updateRoomLastMessage(roomId, lastMessage)
-      }
-
-      if (replyingTo?.id === messageId) {
-        setReplyingTo(null)
-      }
-
-      toast.success("Message deleted", toastOptions)
-    } catch (error) {
-      const message = axios.isAxiosError(error)
-        ? (error.response?.data?.error ??
-          error.response?.data?.message ??
-          "Unable to delete message")
-        : "Unable to delete message"
-
-      toast.error(message, toastOptions)
-    } finally {
-      setDeletingMessageId(null)
-    }
   }
 
   return (
@@ -330,12 +144,12 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
 
           <button
             type="button"
-            onClick={() => setShowMembersPanel((current) => !current)}
+            onClick={toggleMembersPanel}
             className="rounded-lg transition hover:bg-white/10"
             aria-label="View room members"
           >
             <Avatar className="h-9 w-9 shrink-0 border border-border">
-              <AvatarImage src={room?.name} alt={room?.name} />
+              <AvatarImage src={room.name} alt={room.name} />
               <AvatarFallback className="text-xs">
                 {room.name[0]}
               </AvatarFallback>
@@ -344,7 +158,7 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
 
           <button
             type="button"
-            onClick={() => setShowMembersPanel((current) => !current)}
+            onClick={toggleMembersPanel}
             className="min-w-0 flex-1 rounded-lg px-1 py-0.5 text-left transition hover:bg-white/10"
             aria-label="View room members"
           >
@@ -367,7 +181,7 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
               room={room}
               currentUserId={user?.id ?? null}
               canManageRoom={canManageRoom}
-              onShowChat={() => setShowMembersPanel(false)}
+              onShowChat={closeMembersPanel}
             />
           ) : (
             <ScrollArea className="h-full p-0">
@@ -377,22 +191,20 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
                     Loading messages...
                   </div>
                 )}
-
                 {!isLoading && roomMessages.length === 0 && (
                   <div className="text-center text-sm text-muted-foreground">
                     No messages yet. Start the conversation.
                   </div>
                 )}
-
                 {roomMessages.map((message) => {
                   const isOwn = message.sender === user?.id
-                  const username = getMessageAuthorName(message)
-                  const avatar = getMessageAuthorAvatar(message)
+                  const username = getAuthorName(message)
+                  const avatar = getAuthorAvatar(message)
                   const parentMessage = message.parentId
                     ? roomMessagesById.get(message.parentId)
                     : undefined
                   const parentUsername = parentMessage
-                    ? getMessageAuthorName(parentMessage)
+                    ? getAuthorName(parentMessage)
                     : undefined
 
                   return (
@@ -426,7 +238,6 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
                     />
                   )
                 })}
-
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
@@ -437,8 +248,8 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
           <CardFooter className="flex gap-2 pt-2 pb-5">
             <form
               className="flex w-full items-end gap-2"
-              onSubmit={(event) => {
-                event.preventDefault()
+              onSubmit={(e) => {
+                e.preventDefault()
                 void sendMessage()
               }}
             >
@@ -447,7 +258,7 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
                   <div className="flex items-start justify-between rounded-xl border border-primary/40 bg-white/8 px-3 py-2">
                     <div className="min-w-0 border-l-2 border-primary/70 pl-3">
                       <div className="text-xs font-medium text-primary">
-                        Replying to {getMessageAuthorName(replyingTo)}
+                        Replying to {getAuthorName(replyingTo)}
                       </div>
                       <div className="line-clamp-2 text-xs text-muted-foreground">
                         {getMessageBody(replyingTo)}
@@ -455,7 +266,7 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setReplyingTo(null)}
+                      onClick={clearReply}
                       className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
                       aria-label="Cancel reply"
                     >
@@ -467,11 +278,10 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
                 <InputGroup className="h-10 w-full border border-primary/50">
                   <InputGroupInput
                     value={draft}
-                    onChange={(event) => setDraft(event.target.value)}
-                    placeholder={`Message ${activeRoom.name}`}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder={`Message ${room.name}`}
                     disabled={!user || isSending}
                   />
-
                   <InputGroupAddon>
                     <IconPaperclip
                       stroke={2}
@@ -486,7 +296,6 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
                       className="cursor-not-allowed text-white/30"
                     />
                   </InputGroupAddon>
-
                   <InputGroupAddon align="inline-end">
                     <InputGroupButton
                       type="submit"
@@ -833,9 +642,9 @@ function RoomMembersPanel({
   const [removeTarget, setRemoveTarget] = useState<RoomMemberRecord | null>(
     null
   )
-  const [pendingRequests, setPendingRequests] = useState<RoomJoinRequestRecord[]>(
-    []
-  )
+  const [pendingRequests, setPendingRequests] = useState<
+    RoomJoinRequestRecord[]
+  >([])
   const [isLoadingPending, setIsLoadingPending] = useState(false)
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(
     null

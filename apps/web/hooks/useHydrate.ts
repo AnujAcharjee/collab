@@ -19,13 +19,13 @@ export const useHydrate = (userid: string) => {
 
   const fetch = useCallback(async () => {
     try {
-      const currentUserId = useAppStore.getState().user?.id
+      // const currentUserId = useAppStore.getState().user?.id
 
-      if (currentUserId && currentUserId !== userid) {
-        resetAppState()
-      }
+      // if (currentUserId && currentUserId !== userid) {
+      //   resetAppState()
+      // }
 
-      const res = await axios.get(`${usersApiUrl}/hydrate/${userid}`, {
+      const res = await axios.get(`${usersApiUrl}/hydrate`, {
         withCredentials: true,
       })
       hydrateUserState({
