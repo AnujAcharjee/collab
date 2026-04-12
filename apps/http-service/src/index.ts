@@ -8,6 +8,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { userRouter } from './routes/user.js';
 import { loggingMiddleware } from './middleware/loggingMiddleware.js';
 import { authenticateRequest } from './middleware/authenticateRequest.js';
+import { authRouter } from './routes/auth.js';
 
 const PORT = process.env.PORT ?? 3003;
 
@@ -29,7 +30,8 @@ app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 });
 
-app.use('/api/v1/users', userRouter);
+app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/users',authenticateRequest, userRouter);
 app.use('/api/v1/rooms', authenticateRequest, roomRouter);
 
 app.use(errorHandler);

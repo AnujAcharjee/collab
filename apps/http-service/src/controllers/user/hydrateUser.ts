@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import type { HydrateUserRequest, RoomRecord, UserRecord } from '@repo/validation';
+import type { RoomRecord, UserRecord } from '@repo/validation';
 import {
   grpcUnary,
   type GetUserRequest as HydrateUserRpcRequest,
@@ -22,9 +22,9 @@ type HydratedUserRecord = {
 
 function fetchHydratedUser(lookup: UserLookup): Promise<HydratedUserRecord> {
   const request: HydrateUserRpcRequest = {
-    id: lookup.id,
-    email: lookup.email,
-    username: lookup.username,
+    ...(lookup.id && { id: lookup.id }),
+    ...(lookup.email && { email: lookup.email }),
+    ...(lookup.username && { username: lookup.username }),
   };
 
   return grpcUnary<HydrateUserResponse>((callback) => dbGrpcClient.hydrateUser(request, callback))
@@ -36,24 +36,24 @@ function fetchHydratedUser(lookup: UserLookup): Promise<HydratedUserRecord> {
 
       return {
         user: toUserRecord(response.user),
-        rooms: response.rooms.map(toRoomRecord),
+        rooms: (response.rooms ?? []).map(toRoomRecord),
       };
     });
 }
 
 export const hydrateUser = async (req: Request, res: Response) => {
-  const validatedRequest = {
-    params: req.params,
-    query: req.query,
-  } as HydrateUserRequest;
+  console.log('req.user:', req.user);
 
-  const data: UserLookup = {
-    id: validatedRequest.params.id ?? validatedRequest.query.id,
-    email: validatedRequest.query.email?.toLowerCase(),
-    username: validatedRequest.query.username,
-  };
+  if (!req.user?.id) {
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized',
+    });
+  }
 
-  const hydratedUser = await fetchHydratedUser(data);
+  const hydratedUser = await fetchHydratedUser({
+    id: req.user.id,
+  });
 
   return res.status(200).json({
     success: true,

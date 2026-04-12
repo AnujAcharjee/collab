@@ -377,7 +377,7 @@ export const oauthCallBack = async (req: Request, res: Response) => {
       path: '/',
     });
 
-    return res.redirect(`${WEB_APP_URL}/user/${user.id}`);
+    return res.redirect(`${WEB_APP_URL}`);
   } catch (error) {
     logger.error({ err: error, state }, 'Pramaan OAuth callback failed');
     return res.redirect(buildWebAuthUrl(mode, 'Authentication failed. Please try again.'));
