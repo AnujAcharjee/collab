@@ -12,15 +12,15 @@ export function AppIcon({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
 
   return (
     <div
-      className={`flex shrink-0 items-center gap-2 rounded-xl border border-[#926a1f] bg-linear-to-br from-[#7a4f0a] via-[#C8860A] to-[#7a4f0a] px-3 py-1.5 shadow-[inset_0_0_0_1px_rgba(255,220,100,0.15)]`}
+      className={`flex shrink-0 items-center gap-2 p-1 rounded-xl text-[#b99f38]`}
     >
       <IconSparkles
-        className={`${spark[size]} text-[#fff5d6] opacity-70`}
+        className={`${spark[size]} opacity-70`}
         stroke={1.75}
       />
 
       <span
-        className={`font-sans ${word[size]} leading-none font-semibold tracking-widest text-[#fff5d6]/90`}
+        className={`font-sans ${word[size]} leading-none font-semibold tracking-widest`}
       >
         Cllab
       </span>

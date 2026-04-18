@@ -114,7 +114,7 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
 
   if (!room) {
     return (
-      <div className="h-svh w-full px-0 py-4 lg:p-4">
+      <div className="h-svh w-full px-0 py-3 lg:p-3">
         <Card className="flex h-full w-full items-center justify-center border-dashed">
           <div className="px-6 text-center text-sm text-muted-foreground">
             Select a room to start chatting.
@@ -125,13 +125,13 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
   }
 
   return (
-    <div className="h-svh w-full p-2 lg:p-4">
-      <Card className="flex h-full w-full flex-col gap-0 border border-primary/50 p-0">
-        <CardHeader className="flex items-center gap-2 border-b border-white/10 bg-white/5 px-2 pt-4 backdrop-blur-sm">
+    <div className="h-svh w-full p-2 lg:p-3">
+      <Card className="flex h-full w-full flex-col gap-0 border border-border/60 p-0">
+        <CardHeader className="flex items-center gap-2 border-b border-border/50 bg-card/40 px-2 pt-3 pb-3 backdrop-blur-sm">
           <button
             type="button"
             onClick={() => setActiveRoom(null)}
-            className="group flex items-center justify-center rounded-lg p-1.5 text-white/50 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-95"
+            className="group flex items-center justify-center rounded-lg p-1 text-muted-foreground transition-all duration-150 hover:bg-muted hover:text-foreground active:scale-95"
             aria-label="Go back"
           >
             <IconChevronLeft
@@ -145,10 +145,10 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
           <button
             type="button"
             onClick={toggleMembersPanel}
-            className="rounded-lg transition hover:bg-white/10"
+            className="rounded-lg transition hover:bg-muted/60"
             aria-label="View room members"
           >
-            <Avatar className="h-9 w-9 shrink-0 border border-border">
+            <Avatar className="h-8 w-8 shrink-0 border border-border">
               <AvatarImage src={room.name} alt={room.name} />
               <AvatarFallback className="text-xs">
                 {room.name[0]}
@@ -159,14 +159,14 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
           <button
             type="button"
             onClick={toggleMembersPanel}
-            className="min-w-0 flex-1 rounded-lg px-1 py-0.5 text-left transition hover:bg-white/10"
+            className="min-w-0 flex-1 rounded-lg px-1 py-0.5 text-left transition hover:bg-muted/60"
             aria-label="View room members"
           >
-            <div className="text-md truncate tracking-wide text-white/90">
+            <div className="text-md truncate tracking-wide text-foreground">
               {room.name}
             </div>
             {room.description?.trim() && (
-              <div className="truncate text-xs text-white/45">
+              <div className="truncate text-xs text-muted-foreground">
                 {room.description}
               </div>
             )}
@@ -175,7 +175,7 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
           {canManageRoom && <DialogEditRoom room={room} />}
         </CardHeader>
 
-        <CardContent className="min-h-0 flex-1 px-0 py-0 shadow-inner sm:px-2">
+        <CardContent className="min-h-0 flex-1 px-0 py-0 sm:px-1">
           {showMembersPanel ? (
             <RoomMembersPanel
               room={room}
@@ -185,7 +185,7 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
             />
           ) : (
             <ScrollArea className="h-full p-0">
-              <div className="space-y-3 px-4 py-3 sm:px-6">
+              <div className="space-y-2 px-3 py-2 sm:px-4">
                 {isLoading && (
                   <div className="text-center text-sm text-muted-foreground">
                     Loading messages...
@@ -245,17 +245,17 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
         </CardContent>
 
         {!showMembersPanel && (
-          <CardFooter className="flex gap-2 pt-2 pb-5">
+          <CardFooter className="flex gap-2 px-3 py-3">
             <form
-              className="flex w-full items-end gap-2"
+              className="flex w-full items-end gap-1.5"
               onSubmit={(e) => {
                 e.preventDefault()
                 void sendMessage()
               }}
             >
-              <div className="flex flex-1 flex-col gap-2">
+              <div className="flex flex-1 flex-col gap-1.5">
                 {replyingTo && (
-                  <div className="flex items-start justify-between rounded-xl border border-primary/40 bg-white/8 px-3 py-2">
+                  <div className="flex items-start justify-between rounded-xl border border-primary/40 bg-muted/30 px-2.5 py-1.5">
                     <div className="min-w-0 border-l-2 border-primary/70 pl-3">
                       <div className="text-xs font-medium text-primary">
                         Replying to {getAuthorName(replyingTo)}
@@ -267,7 +267,7 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
                     <button
                       type="button"
                       onClick={clearReply}
-                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
                       aria-label="Cancel reply"
                     >
                       <IconX size={16} />
@@ -275,7 +275,7 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
                   </div>
                 )}
 
-                <InputGroup className="h-10 w-full border border-primary/50">
+                <InputGroup className="h-9 w-full border border-primary/50">
                   <InputGroupInput
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
@@ -287,13 +287,13 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
                       stroke={2}
                       height={20}
                       width={20}
-                      className="cursor-not-allowed text-white/30"
+                      className="cursor-not-allowed text-muted-foreground/60"
                     />
                     <IconMoodSmile
                       stroke={2}
                       height={20}
                       width={20}
-                      className="cursor-not-allowed text-white/30"
+                      className="cursor-not-allowed text-muted-foreground/60"
                     />
                   </InputGroupAddon>
                   <InputGroupAddon align="inline-end">
@@ -302,7 +302,7 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
                       variant="ghost"
                       size="icon-sm"
                       disabled={!user || !draft.trim() || isSending}
-                      className="text-white/50 hover:text-white"
+                      className="text-muted-foreground hover:text-foreground"
                     >
                       <IconBrandTelegram stroke={2} height={18} width={18} />
                     </InputGroupButton>
@@ -310,12 +310,12 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
                 </InputGroup>
               </div>
 
-              <div className="rounded-full border border-border/50 bg-white/10 p-1.5">
+              <div className="rounded-full border border-border/50 bg-muted/30 p-1">
                 <IconMicrophone
                   stroke={2}
                   height={20}
                   width={20}
-                  className="cursor-not-allowed text-white/30"
+                  className="cursor-not-allowed text-muted-foreground/60"
                 />
               </div>
             </form>
@@ -362,9 +362,9 @@ function MessageBubble({
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          className={`flex items-end gap-2 ${isOwn ? "flex-row-reverse" : ""}`}
+          className={`flex items-end gap-1.5 ${isOwn ? "flex-row-reverse" : ""}`}
         >
-          <Avatar className="h-7 w-7 shrink-0 border border-border">
+          <Avatar className="h-6 w-6 shrink-0 border border-border">
             <AvatarImage src={avatar} alt={username} />
             <AvatarFallback className="text-xs">{username[0]}</AvatarFallback>
           </Avatar>
@@ -373,23 +373,23 @@ function MessageBubble({
             className={`flex max-w-[70%] flex-col gap-1 ${isOwn ? "items-end" : "items-start"}`}
           >
             <div
-              className={`rounded-[18px] px-3.5 py-2 text-xs leading-relaxed text-white sm:text-sm ${
+              className={`rounded-[18px] px-3 py-1.5 text-xs leading-relaxed sm:text-sm ${
                 isOwn
-                  ? "rounded-br-4 bg-primary/60"
+                  ? "rounded-br-4 bg-primary/80 text-primary-foreground"
                   : "rounded-bl-4 bg-muted text-foreground"
               }`}
             >
               {parentId && parentMessage && (
                 <div
-                  className={`mb-2.5 rounded-2xl border px-3 py-2.5 text-[11px] shadow-sm sm:text-xs ${
+                  className={`mb-2 rounded-2xl border px-2.5 py-2 text-[11px] shadow-sm sm:text-xs ${
                     isOwn
-                      ? "border-white/15 bg-black/10 text-white/90 ring-1 ring-white/10"
+                      ? "border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground ring-1 ring-primary-foreground/15"
                       : "border-border/60 bg-background/80 text-muted-foreground"
                   }`}
                 >
                   <div
                     className={`mb-1 flex items-center gap-1.5 ${
-                      isOwn ? "text-white/85" : "text-primary"
+                      isOwn ? "text-primary-foreground/90" : "text-primary"
                     }`}
                   >
                     <IconMessageReply size={12} />
@@ -544,7 +544,7 @@ function DialogEditRoom({ room }: { room: RoomRecord }) {
         <DialogTrigger asChild>
           <button
             type="button"
-            className="flex items-center justify-center rounded-lg p-1.5 text-white/50 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-95"
+            className="flex items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-all duration-150 hover:bg-muted hover:text-foreground active:scale-95"
             aria-label="Edit room"
           >
             <IconDotsVertical size={18} stroke={2} />
@@ -808,8 +808,8 @@ function RoomMembersPanel({
   return (
     <>
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-2 text-sm font-semibold text-white/90">
+        <div className="flex items-center justify-between border-b border-border/50 px-3 py-2 sm:px-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <IconUsers size={16} />
             Members ({room.members.length})
           </div>
@@ -837,9 +837,9 @@ function RoomMembersPanel({
         </div>
 
         <ScrollArea className="h-full">
-          <div className="space-y-2 px-4 py-3 sm:px-6">
+          <div className="space-y-2 px-3 py-2 sm:px-4">
             {canManageRoom && (
-              <div className="rounded-lg border border-border/40 bg-card/40 p-3">
+              <div className="rounded-lg border border-border/40 bg-card/40 p-2">
                 <div className="mb-2 text-xs font-medium text-muted-foreground">
                   Pending join requests
                 </div>
@@ -860,10 +860,10 @@ function RoomMembersPanel({
                   pendingRequests.map((request) => (
                     <div
                       key={request.id}
-                      className="mb-2 flex items-center justify-between rounded-md border border-border/40 px-2 py-2 last:mb-0"
+                      className="mb-2 flex items-center justify-between rounded-md border border-border/40 px-2 py-1.5 last:mb-0"
                     >
                       <div className="flex min-w-0 items-center gap-2">
-                        <Avatar className="h-7 w-7 border border-border">
+                        <Avatar className="h-6 w-6 border border-border">
                           <AvatarImage
                             src={request.user?.avatarUrl ?? undefined}
                             alt={request.user?.username ?? "User"}
@@ -872,7 +872,7 @@ function RoomMembersPanel({
                             {request.user?.username?.[0] ?? "U"}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="truncate text-sm">
+                        <div className="truncate text-[13px]">
                           {request.user?.username ?? "Unknown user"}
                         </div>
                       </div>
@@ -916,10 +916,10 @@ function RoomMembersPanel({
               return (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between rounded-lg border border-border/40 bg-card/60 px-3 py-2"
+                  className="flex items-center justify-between rounded-lg border border-border/40 bg-card/60 px-2.5 py-1.5"
                 >
                   <div className="flex min-w-0 items-center gap-2">
-                    <Avatar className="h-8 w-8 border border-border">
+                    <Avatar className="h-7 w-7 border border-border">
                       <AvatarImage
                         src={member.user?.avatarUrl ?? undefined}
                         alt={displayName}
@@ -929,7 +929,7 @@ function RoomMembersPanel({
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <div className="truncate text-sm">{displayName}</div>
+                      <div className="truncate text-[13px]">{displayName}</div>
                       <div className="text-xs text-muted-foreground">
                         {member.role}
                       </div>

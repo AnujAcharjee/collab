@@ -1,25 +1,26 @@
 import { AppIcon } from "@/components/AppIcon"
+import { ThemeToggleButton } from "@/components/theme-toggle"
 
 const features = [
   {
-    label: "Easy Integration",
-    desc: "Connect your existing tools in minutes — Slack, Notion, Linear, and 200+ more via our open API.",
+    label: "Real-Time Messaging",
+    desc: "Instant message delivery with low latency WebSocket connections — conversations that feel truly live.",
   },
   {
-    label: "24/7 Support",
-    desc: "Human-first support around the clock. Avg. response time under 4 minutes on any plan.",
+    label: "Reliable Delivery",
+    desc: "Backed by a stream-based architecture ensuring ordered, durable, and consistent message delivery.",
   },
   {
-    label: "Customisable Design",
-    desc: "White-label your workspace. Match your brand with custom themes, domains, and logos.",
+    label: "Scalable by Design",
+    desc: "Handles thousands of concurrent users with distributed services and horizontal scaling.",
   },
   {
-    label: "Scalable Performance",
-    desc: "Built on edge infrastructure with 99.99% uptime SLA. From 5 to 50,000 teammates.",
+    label: "Presence & Sync",
+    desc: "Track online users and keep conversations in sync across devices in real time.",
   },
   {
-    label: "Hundreds of Blocks",
-    desc: "Drag-and-drop docs, boards, calendars, and embeds. Build the workspace your team needs.",
+    label: "Seamless Experience",
+    desc: "Fast, responsive UI designed for smooth, uninterrupted communication.",
   },
 ]
 
@@ -33,9 +34,9 @@ const avatars = [
 
 export default function Page() {
   return (
-    <div className="flex h-screen w-full flex-col overflow-hidden bg-[#faf7f2] font-sans">
+    <div className="flex h-screen w-full flex-col overflow-hidden bg-background bg-[radial-gradient(circle_at_top,rgba(244,187,68,0.12),transparent_42%),radial-gradient(circle_at_bottom,rgba(125,80,20,0.08),transparent_55%)] font-sans text-foreground dark:bg-[radial-gradient(circle_at_top,rgba(244,187,68,0.10),transparent_40%),radial-gradient(circle_at_bottom,rgba(255,255,255,0.04),transparent_60%)]">
       {/* NAV */}
-      <nav className="flex h-14 shrink-0 items-center justify-between border-b border-[#e2d8c8] bg-[#f0e7d6] px-14 max-sm:px-5">
+      <nav className="flex h-14 shrink-0 items-center justify-between border-b border-border/60 bg-card/40 px-14 backdrop-blur-sm max-sm:px-5">
         <a
           href="#"
           className="flex items-center gap-2.5 bg-linear-to-br from-[#F5C842] via-[#e8a825] to-[#C8860A] bg-clip-text font-sans text-xl leading-none font-semibold tracking-[2px] text-transparent"
@@ -45,15 +46,16 @@ export default function Page() {
         </a>
         <div className="flex items-center gap-2">
           <a
-            href="https://github.com"
+            href="https://github.com/AnujAcharjee/collab"
             target="_blank"
-            className="flex items-center gap-1.5 rounded-full border border-transparent px-3.5 py-1.5 text-[13px] text-[#6b5b42] transition hover:bg-[#f0e8d8] hover:text-[#1a140a]"
+            className="flex items-center gap-1.5 rounded-full border border-transparent px-3.5 py-1.5 text-[13px] text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
           >
             GitHub
           </a>
+          <ThemeToggleButton className="text-muted-foreground hover:bg-muted/40 hover:text-foreground" />
           <a
             href="/auth"
-            className="rounded-full bg-[#1a140a] px-4 py-1.5 text-[13px] font-medium text-[#f5e8c8] transition hover:bg-[#3a2a10]"
+            className="rounded-full bg-primary px-4 py-1.5 text-[13px] font-medium text-primary-foreground transition hover:bg-primary/80"
           >
             Sign in
           </a>
@@ -65,26 +67,24 @@ export default function Page() {
         {/* HERO — full width, centered */}
         <section className="flex flex-col items-center justify-center px-14 py-24 text-center max-sm:px-6 max-sm:py-16">
           {/* Beta pill */}
-          <div className="bg-[#b8862e]/06 mb-8 inline-flex items-center gap-2 rounded-full border border-[#b8862e]/30 px-4 py-1.5 text-[11px] font-medium tracking-[0.18em] text-[#b8862e] uppercase">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#b8862e]" />
+          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-[11px] font-medium tracking-[0.18em] text-primary uppercase">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
             Now in open beta
           </div>
 
-          <h1 className="mb-6 font-serif text-[clamp(44px,6vw,72px)] leading-[1.08] font-normal text-[#1a140a]">
-            Where teams
+          <h1 className="mb-6 font-serif text-[clamp(44px,6vw,72px)] leading-[1.08] font-normal text-foreground">
+            Conversations that feel
             <br />
-            think <em className="text-[#b8862e] italic">together</em>
+            <em className="text-primary italic">real-time</em>
           </h1>
 
-          <p className="mb-10 max-w-[46ch] text-[15px] leading-[1.8] font-light text-[#6b5b42]">
-            A collaboration platform enabling seamless teamwork through
-            real-time video and messaging — built for the way modern teams
-            actually work.
+          <p className="mb-10 max-w-[46ch] text-[15px] leading-[1.8] font-light text-muted-foreground">
+            Fast, reliable chat — built for seamless, instant communication.
           </p>
 
           <a
             href="/"
-            className="mb-12 inline-flex items-center gap-2.5 rounded-full bg-[#1a140a] px-7 py-3.5 text-[13px] font-medium tracking-wide text-[#f5e8c8] transition hover:-translate-y-0.5 hover:bg-[#3a2a10]"
+            className="mb-12 inline-flex items-center gap-2.5 rounded-full bg-primary px-7 py-3.5 text-[13px] font-medium tracking-wide text-primary-foreground transition hover:-translate-y-0.5 hover:bg-primary/80"
           >
             Get started free →
           </a>
@@ -95,48 +95,49 @@ export default function Page() {
               {avatars.map((a, i) => (
                 <div
                   key={i}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#faf7f2] text-[11px] font-medium text-white"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-background text-[11px] font-medium text-white"
                   style={{ background: a.color, marginLeft: i === 0 ? 0 : -8 }}
                 >
                   {a.initials}
                 </div>
               ))}
             </div>
-            <p className="text-[13px] font-light text-[#6b5b42]">
-              <span className="font-medium text-[#1a140a]">4,200+</span> teams
-              already onboard
+            <p className="text-[13px] font-light text-muted-foreground">
+              <span className="font-medium text-foreground">4,200+</span>
+              {" already onboard"}
             </p>
           </div>
 
           {/* FEATURES — horizontal strip */}
-          <div className="w-full border-t border-[#e2d8c8]">
-            <p className="mb-8 pt-12 text-[11px] font-medium tracking-[0.18em] text-[#b8862e] uppercase">
+          <div className="w-full border-t border-border/60">
+            <p className="mb-8 pt-12 text-[11px] font-medium tracking-[0.18em] text-primary uppercase">
               What's included
             </p>
-            <div className="grid grid-cols-5 divide-x divide-[#e2d8c8] max-lg:grid-cols-3 max-sm:grid-cols-1 max-sm:divide-x-0 max-sm:divide-y max-sm:text-left">
+            <div className="grid grid-cols-5 divide-x divide-border/60 max-lg:grid-cols-3 max-sm:grid-cols-1 max-sm:divide-x-0 max-sm:divide-y max-sm:text-left">
               {features.map((f, i) => (
                 <div
                   key={i}
-                  className="group flex flex-col items-center gap-3 px-6 py-6 text-center transition hover:bg-[#f0e7d6]/50 max-sm:items-start max-sm:text-left"
+                  className="group flex flex-col items-center gap-3 px-6 py-6 text-center transition hover:bg-muted/30 max-sm:items-start max-sm:text-left"
                 >
-                  <div className="bg-[#b8862e]/08 flex h-8 w-8 items-center justify-center rounded-full border border-[#b8862e]/30">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/30 bg-primary/10">
                     <svg
                       width="14"
                       height="14"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke="#b8862e"
+                      stroke="currentColor"
                       strokeWidth="2.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
+                      className="text-primary"
                     >
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   </div>
-                  <p className="text-[13px] font-medium text-[#1a140a] transition group-hover:text-[#b8862e]">
+                  <p className="text-[13px] font-medium text-foreground transition group-hover:text-primary">
                     {f.label}
                   </p>
-                  <p className="text-[12px] leading-[1.7] font-light text-[#6b5b42]">
+                  <p className="text-[12px] leading-[1.7] font-light text-muted-foreground">
                     {f.desc}
                   </p>
                 </div>
@@ -147,9 +148,9 @@ export default function Page() {
       </div>
 
       {/* FOOTER */}
-      <footer className="flex h-12 shrink-0 items-center justify-center border-t border-[#e2d8c8] bg-[#faf7f2]">
-        <p className="text-xs text-[#a08060]">
-          © 2025 Collab. All rights reserved.
+      <footer className="flex h-12 shrink-0 items-center justify-center border-t border-border/60 bg-background">
+        <p className="text-xs text-muted-foreground">
+          © 2026 Collab. All rights reserved.
         </p>
       </footer>
     </div>

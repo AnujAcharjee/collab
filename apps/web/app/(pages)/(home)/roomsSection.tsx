@@ -49,6 +49,8 @@ import type { RoomRecord } from "@repo/validation"
 import useAppStore from "@/stores/app-store"
 import axios from "axios"
 import { useRooms } from "@/hooks/useRooms"
+import { ThemeToggleButton } from "@/components/theme-toggle"
+import { AppIcon } from '@/components/AppIcon'
 
 type CreateRoomFormInput = Omit<CreateRoomInput, "creatorId" | "isPrivate"> & {
   isPrivate: "true" | "false"
@@ -177,17 +179,17 @@ export default function RoomsSection() {
   }
 
   return (
-    <div className="h-svh w-full p-4">
-      <Card className="flex h-full w-full flex-col border border-primary/50 p-0">
-        <CardHeader className="shadow-b flex flex-col gap-4 py-4 shadow-white/10">
+    <div className="h-svh w-full p-3">
+      <Card className="flex h-full w-full flex-col border border-border/60 p-0">
+        <CardHeader className="shadow-b flex flex-col gap-3 px-4 py-3 shadow-black/5 dark:shadow-white/10">
           <CardTitle className="flex items-center justify-between">
-            <div className="text-xl font-medium text-primary">Collab</div>
+            <AppIcon />
           </CardTitle>
 
           <CardDescription className="w-full">
             <form
               onSubmit={handleSearch}
-              className="flex h-9 items-center gap-2 rounded-full border border-border/40 bg-muted/60 px-3"
+              className="flex h-8 items-center gap-2 rounded-full border border-border/40 bg-muted/60 px-2.5"
             >
               <IconSearch
                 stroke={2}
@@ -225,7 +227,7 @@ export default function RoomsSection() {
 
         <CardContent className="min-h-0 flex-1 p-0">
           <ScrollArea className="h-full">
-            <div className="px-4 py-2 sm:px-6">
+            <div className="px-3 py-2 sm:px-4">
               {isSearchMode && (
                 <div className="pb-2 text-xs text-muted-foreground">
                   Search results for &quot;{searchName.trim()}&quot;
@@ -261,23 +263,26 @@ export default function RoomsSection() {
                       isJoining={joiningRoomId === room.id}
                       hasPendingRequest={Boolean(pendingJoinRoomIds[room.id])}
                     />
-                    <Separator className="my-2" />
+                    <Separator className="my-1.5" />
                   </Fragment>
                 ))}
             </div>
           </ScrollArea>
         </CardContent>
 
-        <CardFooter className="flex gap-2 bg-primary/80 text-primary-foreground">
-          <Avatar className="h-7 w-7 border border-border">
-            <AvatarImage
-              src={user.avatarUrl ? user.avatarUrl : undefined}
-              alt={user.username}
-            />
-            <AvatarFallback>{user.username[0]}</AvatarFallback>
-            <AvatarBadge className="right-0.5 bottom-0.5 h-2.5 w-2.5 border-[1.5px] border-background bg-green-500" />
-          </Avatar>
-          <span>{user.username}</span>
+        <CardFooter className="flex items-center justify-between gap-2 bg-primary/80 px-4 py-2 text-primary-foreground">
+          <div className="flex min-w-0 items-center gap-2">
+            <Avatar className="h-7 w-7 border border-border">
+              <AvatarImage
+                src={user.avatarUrl ? user.avatarUrl : undefined}
+                alt={user.username}
+              />
+              <AvatarFallback>{user.username[0]}</AvatarFallback>
+              <AvatarBadge className="right-0.5 bottom-0.5 h-2.5 w-2.5 border-[1.5px] border-background bg-green-500" />
+            </Avatar>
+            <span className="truncate text-sm">{user.username}</span>
+          </div>
+          <ThemeToggleButton className="text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" />
         </CardFooter>
       </Card>
     </div>
@@ -327,7 +332,7 @@ function ListItems({
           onSelect(room)
         }
       }}
-      className={`relative flex items-center justify-between rounded-md bg-card px-3 py-2 transition-colors hover:bg-muted/50`}
+      className={`relative flex items-center justify-between rounded-md bg-card px-2.5 py-1.5 transition-colors hover:bg-muted/50`}
     >
       <div className="flex items-center gap-2">
         <Avatar className="h-7 w-7 border border-border">
@@ -340,7 +345,7 @@ function ListItems({
             <AvatarBadge className="right-0 bottom-0 h-2 w-2 border-[1.5px] border-background bg-green-500" />
           )}
         </Avatar>
-        <span className="text-sm">{room.name}</span>
+        <span className="text-[13px]">{room.name}</span>
       </div>
 
       <div className="flex items-center gap-2">
