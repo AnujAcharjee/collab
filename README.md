@@ -17,7 +17,8 @@ The idea is simple: split the work across focused services so each piece stays s
 
 ## Architecture
 
-![System Design](./system-design.svg)
+![System Design](./system.svg)
+[View on Eraser![](https://app.eraser.io/workspace/cXOIjtMxK0rPZQs4jGI3/preview?diagram=KkBkVE9XG1byfMcB-Djx&type=embed)](https://app.eraser.io/workspace/cXOIjtMxK0rPZQs4jGI3?diagram=KkBkVE9XG1byfMcB-Djx)
 
 ## Request Flow (Messaging)
 
