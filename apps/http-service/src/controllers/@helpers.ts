@@ -93,3 +93,10 @@ export function toGrpcAppError(error: ServiceError, resourceName = 'Resource'): 
       return new AppError(error.details || 'Internal server error', 500);
   }
 }
+
+export function mapToGrpcString(value: string | null | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return '';
+  return value;
+}
+

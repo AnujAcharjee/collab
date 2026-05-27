@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { createProxyMiddleware } from 'http-proxy-middleware';
+import { createProxyMiddleware, fixRequestBody } from 'http-proxy-middleware';
 import type { ClientRequest, IncomingMessage } from 'http';
 
 import { roundRobin } from './roundRobin.js';
@@ -70,6 +70,9 @@ export function createServiceProxy({
         if (r.user?.email) {
           proxyReq.setHeader('x-user-email', r.user.email);
         }
+
+        // Restream parsed body to downstream services
+        fixRequestBody(proxyReq, r);
       },
 
       proxyRes(proxyRes: IncomingMessage, req: unknown, res: unknown) {

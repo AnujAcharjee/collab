@@ -23,14 +23,21 @@ const userBaseSchema = z.object({
     (value) => value === undefined || value.length <= 100,
     'name must be at most 100 characters',
   ),
-  bio: optionalTrimmedString.refine(
-    (value) => value === undefined || value.length <= 255,
-    'bio must be at most 255 characters',
-  ),
-  avatarUrl: optionalTrimmedString.refine(
-    (value) => value === undefined || z.string().url().safeParse(value).success,
-    'avatarUrl must be a valid URL',
-  ),
+  bio: z
+    .string({ message: 'bio must be a string' })
+    .trim()
+    .max(255, { message: 'bio must be at most 255 characters' })
+    .optional()
+    .nullable(),
+  avatarUrl: z
+    .string({ message: 'avatarUrl must be a string' })
+    .trim()
+    .optional()
+    .nullable()
+    .refine(
+      (value) => !value || z.string().url().safeParse(value).success,
+      'avatarUrl must be a valid URL',
+    ),
 });
 
 export const createUserFromSchema = userBaseSchema;

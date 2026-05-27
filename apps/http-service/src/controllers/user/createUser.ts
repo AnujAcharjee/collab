@@ -2,15 +2,15 @@ import type { Request, Response } from 'express';
 import type { CreateUserInput, UserRecord } from '@repo/validation';
 import { grpcUnary, type CreateUserRequest, type User } from '@repo/proto';
 import { dbGrpcClient } from '../../lib/grpc.js';
-import { toGrpcAppError, toUserRecord } from '../@helpers.js';
+import { mapToGrpcString, toGrpcAppError, toUserRecord } from '../@helpers.js';
 
 function pushUser(input: CreateUserInput): Promise<UserRecord> {
   const request: CreateUserRequest = {
     email: input.email,
     username: input.username,
-    name: input.name,
-    bio: input.bio,
-    avatarUrl: input.avatarUrl,
+    name: mapToGrpcString(input.name),
+    bio: mapToGrpcString(input.bio),
+    avatarUrl: mapToGrpcString(input.avatarUrl),
   };
 
   return grpcUnary<User>((callback) => dbGrpcClient.createUser(request, callback))

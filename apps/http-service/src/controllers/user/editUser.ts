@@ -2,16 +2,16 @@ import type { Request, Response } from 'express';
 import type { EditUserRequest as EditUserInput, UserRecord } from '@repo/validation';
 import { grpcUnary, type EditUserRequest as EditUserRpcRequest, type User } from '@repo/proto';
 import { dbGrpcClient } from '../../lib/grpc.js';
-import { toGrpcAppError, toUserRecord } from '../@helpers.js';
+import { mapToGrpcString, toGrpcAppError, toUserRecord } from '../@helpers.js';
 
 function updateUser(id: string, input: EditUserInput['body']): Promise<UserRecord> {
   const request: EditUserRpcRequest = {
     id,
     email: input.email,
     username: input.username,
-    name: input.name,
-    bio: input.bio,
-    avatarUrl: input.avatarUrl,
+    name: mapToGrpcString(input.name),
+    bio: mapToGrpcString(input.bio),
+    avatarUrl: mapToGrpcString(input.avatarUrl),
   };
 
   return grpcUnary<User>((callback) => dbGrpcClient.editUser(request, callback))
