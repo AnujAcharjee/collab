@@ -114,10 +114,10 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
 
   if (!room) {
     return (
-      <div className="h-svh w-full px-0 py-3 lg:p-3">
-        <Card className="flex h-full w-full items-center justify-center border-dashed">
-          <div className="px-6 text-center text-sm text-muted-foreground">
-            Select a room to start chatting.
+      <div className="h-full w-full p-1.5">
+        <Card className="flex h-full w-full items-center justify-center border border-dashed border-border/60 bg-card/40 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.03)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.15)]">
+          <div className="px-6 text-center text-sm text-muted-foreground font-medium">
+            Select a room to start collaborating.
           </div>
         </Card>
       </div>
@@ -125,8 +125,8 @@ export default function ChatSection({ room }: { room: RoomRecord | null }) {
   }
 
   return (
-    <div className="h-svh w-full p-2 lg:p-3">
-      <Card className="flex h-full w-full flex-col gap-0 border border-border/60 p-0">
+    <div className="h-full w-full p-1.5">
+      <Card className="flex h-full w-full flex-col gap-0 border border-border/40 bg-card/50 shadow-[0_8px_30px_rgb(0,0,0,0.03)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] backdrop-blur-md rounded-2xl p-0 overflow-hidden">
         <CardHeader className="flex items-center gap-2 border-b border-border/50 bg-card/40 px-2 pt-3 pb-3 backdrop-blur-sm">
           <button
             type="button"

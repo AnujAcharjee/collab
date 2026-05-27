@@ -36,12 +36,12 @@ export default function HomeLayout() {
   const showChat = isLg || !!activeRoom
 
   return (
-    <div className="h-svh w-full">
-      <ResizablePanelGroup className="h-full w-full rounded-lg">
+    <div className="relative flex h-svh w-full overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(244,187,68,0.05),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(120,80,200,0.04),transparent_40%),linear-gradient(135deg,#FAF7F2_0%,#FDFBF7_50%,#F5EFE4_100%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(244,187,68,0.03),transparent_45%),radial-gradient(circle_at_bottom_left,rgba(120,80,200,0.03),transparent_45%),linear-gradient(135deg,#0E0E11_0%,#09090B_60%,#0D0D10_100%)] p-2 md:p-3">
+      <ResizablePanelGroup className="h-full w-full">
         {showSidebar && (
           <>
             <ResizablePanel defaultSize={30} minSize={20}>
-              <div className="h-full overflow-auto">
+              <div className="h-full overflow-hidden">
                 <RoomsSection />
               </div>
             </ResizablePanel>
@@ -50,7 +50,7 @@ export default function HomeLayout() {
         )}
         {showChat && (
           <ResizablePanel defaultSize={isLg ? 70 : 100} minSize={40}>
-            <div className="h-full overflow-auto">
+            <div className="h-full overflow-hidden">
               <ChatSection room={activeRoom} />
             </div>
           </ResizablePanel>

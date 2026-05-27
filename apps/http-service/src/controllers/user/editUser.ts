@@ -22,6 +22,14 @@ function updateUser(id: string, input: EditUserInput['body']): Promise<UserRecor
 export const editUser = async (req: Request, res: Response) => {
   const data = req.body as EditUserInput['body'];
   const { id } = req.params as EditUserInput['params'];
+
+  if (req.user?.id !== id) {
+    return res.status(403).json({
+      success: false,
+      error: 'Forbidden: You cannot modify another user\'s profile',
+    });
+  }
+
   const updatedUser = await updateUser(id, data);
 
   return res.status(200).json({

@@ -55,7 +55,7 @@ export const signinUserFromSchema = z.object({
 
 export type SigninUserForm = z.infer<typeof signinUserFromSchema>;
 
-const editUserBodySchema = userBaseSchema.partial().superRefine((body, ctx) => {
+export const editUserBodySchema = userBaseSchema.partial().superRefine((body, ctx) => {
   if (
     body.email === undefined &&
     body.username === undefined &&

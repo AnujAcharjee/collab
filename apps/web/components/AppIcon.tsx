@@ -22,7 +22,7 @@ export function AppIcon({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
       <span
         className={`font-sans ${word[size]} leading-none font-semibold tracking-widest`}
       >
-        Cllab
+        Collab
       </span>
     </div>
   )

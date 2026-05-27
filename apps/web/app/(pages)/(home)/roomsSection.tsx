@@ -35,6 +35,7 @@ import {
   IconDotsVertical,
   IconLock,
   IconLockOpen2,
+  IconSettings,
 } from "@tabler/icons-react"
 import {
   Tooltip,
@@ -43,14 +44,16 @@ import {
 } from "@/components/ui/tooltip"
 import { z } from "zod"
 import { useShallow } from "zustand/react/shallow"
+import { useTheme } from "next-themes"
 
-import { type CreateRoomInput, createRoomSchema } from "@repo/validation"
+import { type CreateRoomInput, createRoomSchema, editUserBodySchema } from "@repo/validation"
 import type { RoomRecord } from "@repo/validation"
 import useAppStore from "@/stores/app-store"
 import axios from "axios"
 import { useRooms } from "@/hooks/useRooms"
 import { ThemeToggleButton } from "@/components/theme-toggle"
 import { AppIcon } from '@/components/AppIcon'
+import { usersApiUrl } from "@/constants/apiUrls"
 
 type CreateRoomFormInput = Omit<CreateRoomInput, "creatorId" | "isPrivate"> & {
   isPrivate: "true" | "false"
@@ -179,11 +182,12 @@ export default function RoomsSection() {
   }
 
   return (
-    <div className="h-svh w-full p-3">
-      <Card className="flex h-full w-full flex-col border border-border/60 p-0">
+    <div className="h-full w-full p-1.5">
+      <Card className="flex h-full w-full flex-col border border-border/40 bg-card/50 shadow-[0_8px_30px_rgb(0,0,0,0.03)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] backdrop-blur-md rounded-2xl p-0 overflow-hidden">
         <CardHeader className="shadow-b flex flex-col gap-3 px-4 py-3 shadow-black/5 dark:shadow-white/10">
           <CardTitle className="flex items-center justify-between">
             <AppIcon />
+            <DialogSettings />
           </CardTitle>
 
           <CardDescription className="w-full">
@@ -270,7 +274,7 @@ export default function RoomsSection() {
           </ScrollArea>
         </CardContent>
 
-        <CardFooter className="flex items-center justify-between gap-2 bg-primary/80 px-4 py-2 text-primary-foreground">
+        {/* <CardFooter className="flex items-center justify-between gap-2 bg-primary/80 px-4 py-2 text-primary-foreground">
           <div className="flex min-w-0 items-center gap-2">
             <Avatar className="h-7 w-7 border border-border">
               <AvatarImage
@@ -283,7 +287,7 @@ export default function RoomsSection() {
             <span className="truncate text-sm">{user.username}</span>
           </div>
           <ThemeToggleButton className="text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" />
-        </CardFooter>
+        </CardFooter> */}
       </Card>
     </div>
   )
@@ -529,7 +533,7 @@ function DialogCreateRoom({ creatorId }: { creatorId: string }) {
         </TooltipContent>
       </Tooltip>
 
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="text-2xl">Create New Room</DialogTitle>
         </DialogHeader>
@@ -546,6 +550,171 @@ function DialogCreateRoom({ creatorId }: { creatorId: string }) {
           submitLabel="Create room"
           pendingLabel="Creating room..."
         />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function DialogSettings() {
+  const { user, setUser } = useAppStore(
+    useShallow((state) => ({
+      user: state.user,
+      setUser: state.setUser,
+    }))
+  )
+  const [open, setOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<"profile" | "appearance">("profile")
+  const { theme, setTheme } = useTheme()
+
+  if (!user) return null
+
+  const userId = user.id
+
+  const defaultProfileValues = {
+    name: user.name || "",
+    username: user.username || "",
+    bio: user.bio || "",
+    avatarUrl: user.avatarUrl || "",
+  }
+
+  const profileFields: FieldConfig<any>[] = [
+    {
+      name: "name",
+      label: "Full Name",
+      placeholder: "e.g. John Doe",
+      autoComplete: "name",
+    },
+    {
+      name: "username",
+      label: "Username",
+      placeholder: "e.g. johndoe",
+      autoComplete: "username",
+    },
+    {
+      name: "bio",
+      label: "Bio",
+      placeholder: "Tell us a bit about yourself",
+      autoComplete: "off",
+    },
+    {
+      name: "avatarUrl",
+      label: "Avatar URL",
+      placeholder: "https://example.com/avatar.jpg",
+      autoComplete: "off",
+    },
+  ]
+
+  async function handleEditProfile(data: any) {
+    try {
+      const payload = {
+        name: data.name?.trim() || null,
+        username: data.username.trim(),
+        bio: data.bio?.trim() || null,
+        avatarUrl: data.avatarUrl?.trim() || null,
+      }
+
+      const res = await axios.patch(`${usersApiUrl}/${userId}`, payload, {
+        withCredentials: true,
+      })
+
+      setUser(res.data.data.user)
+      toast.success("Profile updated", toastOptions)
+      setOpen(false)
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? (error.response?.data?.error ?? error.response?.data?.message ?? "Failed to update profile")
+        : "Failed to update profile"
+      toast.error(message, toastOptions)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Settings"
+              className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
+            >
+              <IconSettings size={18} />
+            </Button>
+          </DialogTrigger>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Settings</p>
+        </TooltipContent>
+      </Tooltip>
+
+      <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold">Settings</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex gap-4 border-b border-border/40 pb-2">
+          <Button
+            type="button"
+            variant="ghost"
+            className={`px-3 py-1 text-sm font-semibold rounded-lg ${
+              activeTab === "profile" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/40"
+            }`}
+            onClick={() => setActiveTab("profile")}
+          >
+            Edit Profile
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className={`px-3 py-1 text-sm font-semibold rounded-lg ${
+              activeTab === "appearance" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/40"
+            }`}
+            onClick={() => setActiveTab("appearance")}
+          >
+            Appearance
+          </Button>
+        </div>
+
+        <div className="mt-4 min-h-[300px]">
+          {activeTab === "profile" && (
+            <div className="space-y-4">
+              <AppForm
+                formId="edit-profile-form"
+                schema={editUserBodySchema}
+                defaultValues={defaultProfileValues}
+                fields={profileFields}
+                onSubmit={handleEditProfile}
+                submitLabel="Save changes"
+                pendingLabel="Saving changes..."
+              />
+            </div>
+          )}
+
+          {activeTab === "appearance" && (
+            <div className="space-y-6">
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-semibold text-foreground">Select Theme</span>
+                <span className="text-xs text-muted-foreground">
+                  Customize Collab's aesthetic to your taste.
+                </span>
+                <div className="flex gap-2 mt-2">
+                  {(["light", "dark", "system"] as const).map((t) => (
+                    <Button
+                      key={t}
+                      type="button"
+                      variant={theme === t ? "default" : "outline"}
+                      className="px-4 py-2 capitalize font-semibold rounded-xl"
+                      onClick={() => setTheme(t)}
+                    >
+                      {t}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   )
