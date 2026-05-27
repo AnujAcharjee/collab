@@ -1,11 +1,15 @@
+"use client"
+
 import useAppStore from "@/stores/app-store"
 import axios from "axios"
 import { useCallback } from "react"
 import type { RoomRecord, UserRecord } from "@repo/validation"
 import { useShallow } from "zustand/react/shallow"
 import { usersApiUrl } from "@/constants/apiUrls"
+import { useRouter } from "next/navigation"
 
 export const useHydrate = (userid: string) => {
+  const router = useRouter()
   const { user, rooms, hasHydrated, hydrateUserState, resetAppState } =
     useAppStore(
       useShallow((state) => ({
@@ -35,8 +39,15 @@ export const useHydrate = (userid: string) => {
     } catch (error) {
       resetAppState()
       console.error("Error while fetching user: ", error)
+
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        router.replace("/auth")
+        return
+      }
+
+      throw error
     }
-  }, [hydrateUserState, resetAppState, userid])
+  }, [hydrateUserState, resetAppState, router, userid])
 
   return { hasHydrated, fetch, user, rooms }
 }

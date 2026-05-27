@@ -11,3 +11,4 @@ export const auth = new AuthService({
     clientId: process.env.PRAMAAN_CLIENT_ID!,
   },
 });
+

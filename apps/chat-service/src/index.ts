@@ -7,7 +7,8 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { chatRouter } from './routes/chat.js';
 import { healthRouter } from './routes/health.js';
 import { loggingMiddleware } from './middleware/loggingMiddleware.js';
-import { authenticateRequest } from './middleware/authenticateRequest.js';
+import { attachUserContext } from './middleware/attachUserContext.js';
+import { requireGatewaySecret } from './middleware/requireGatewaySecret.js';
 
 const PORT = process.env.PORT ?? 3001;
 
@@ -25,7 +26,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(loggingMiddleware);
 
 app.use(healthRouter);
-app.use('/api/v1/chat', authenticateRequest, chatRouter);
+app.use('/api/v1/chat', requireGatewaySecret, attachUserContext, chatRouter);
 
 app.use(errorHandler);
 

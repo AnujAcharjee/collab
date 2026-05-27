@@ -17,8 +17,9 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@repo/logger": "workspace:*",
     "ioredis": "^5.10.0",
-    "@repo/logger": "workspace:*"
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*"

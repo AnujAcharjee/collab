@@ -13,14 +13,15 @@
     "./src/*.proto": "./src/*.proto"
   },
   "scripts": {
-    "clean": "rm -rf ./generated",
+    "clean": "node clean.js",
     "generate": "pnpm run clean && buf generate",
     "build": "pnpm run generate && tsc"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.11.0",
     "@grpc/grpc-js": "^1.14.3",
-    "google-protobuf": "^4.0.2"
+    "google-protobuf": "^4.0.2",
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.50.0",

@@ -109,9 +109,9 @@ export const getUserSchema = z
 
 export type GetUserRequest = z.infer<typeof getUserSchema>;
 
-export const hydrateUserSchema = getUserSchema;
+export const hydrateUserSchema = z.object({});
 
-export type HydrateUserRequest = GetUserRequest;
+export type HydrateUserRequest = z.infer<typeof hydrateUserSchema>;
 
 export const issueTicketSchema = z.object({
   body: z.object({

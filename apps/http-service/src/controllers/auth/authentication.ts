@@ -14,8 +14,8 @@ import { logger } from '../../lib/logger.js';
 import { toUserRecord } from '../@helpers.js';
 
 const PRAMAAN_SERVER_URL = process.env.PRAMAAN_SERVER_URL ?? 'https://pramaan.anujacharjee.com';
-const HTTP_SERVICE_URL = process.env.HTTP_SERVICE_URL ?? `http://127.0.0.1:${process.env.PORT ?? '3003'}`;
-const WEB_APP_URL = process.env.WEB_APP_URL ?? 'http://127.0.0.1:3000';
+const API_GATEWAY_URL = process.env.API_GATEWAY_URL ?? `http://localhost:3005`;
+const WEB_APP_URL = process.env.WEB_APP_URL ?? 'http://localhost:3000';
 const CLIENT_ID =
   process.env.PRAMAAN_CLIENT_ID ??
   (() => {
@@ -26,7 +26,8 @@ const CLIENT_SECRET =
   (() => {
     throw new Error('PRAMAAN_SECRET is not set');
   })();
-const CALLBACK_URL = process.env.CALLBACK_URL ?? `${HTTP_SERVICE_URL}/api/v1/users/auth/pramaan/callback`;
+const CALLBACK_URL =
+  process.env.CALLBACK_URL ?? `${API_GATEWAY_URL}/api/v1/auth/pramaan/callback`;
 const ACCESS_TOKEN_COOKIE_NAME = process.env.ACCESS_TOKEN_COOKIE_NAME?.trim() || 'accessToken';
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7;
 const OAUTH_STATE_TTL_SECONDS = 60 * 10;
@@ -290,7 +291,7 @@ async function loadStoredOAuthState(state: string): Promise<StoredOAuthState | n
   }
 }
 
-export const authentication = async (req: Request, res: Response) => {
+export const authentication = async (req: Request, res: Response) => {  
   const mode = parseAuthMode(getSingleQueryParam(req.query.mode));
   const oauthParameters = generateOAuthParameters(mode);
   const authorizationUrl = buildAuthorizationUrl(
@@ -298,6 +299,8 @@ export const authentication = async (req: Request, res: Response) => {
     oauthParameters.nonce,
     oauthParameters.codeChallenge,
   );
+
+  logger.debug("Authentication got invoked")
 
   await redis.set(
     getStateRedisKey(oauthParameters.state),
@@ -311,6 +314,8 @@ export const authentication = async (req: Request, res: Response) => {
     OAUTH_STATE_TTL_SECONDS,
   );
 
+  logger.debug({mode, authorizationUrl}, "Redirecting user to Pramaan for authentication")
+
   return res.redirect(authorizationUrl);
 };
 
@@ -320,6 +325,8 @@ export const oauthCallBack = async (req: Request, res: Response) => {
   const providerError = getSingleQueryParam(req.query.error);
   const providerErrorDescription = getSingleQueryParam(req.query.error_description);
   const fallbackMode = parseAuthMode(getSingleQueryParam(req.query.mode));
+
+  logger.debug({ code: Boolean(code), state: Boolean(state), providerError }, "OAuth callback got invoked");
 
   if (!state) {
     return res.redirect(buildWebAuthUrl(fallbackMode, 'Missing state parameter'));
@@ -342,9 +349,13 @@ export const oauthCallBack = async (req: Request, res: Response) => {
     return res.redirect(buildWebAuthUrl(mode, 'Missing authorization code'));
   }
 
+  logger.debug({ providerUserId: Boolean(oauthState.nonce) }, "Exchanging authorization code for tokens with Pramaan");
+
   try {
     const rawTokenData = await exchangeCodeForTokens(code, oauthState.codeVerifier);
     const tokenData = normalizeTokenResponse(rawTokenData);
+
+    logger.debug({ hasIdToken: Boolean(tokenData.idToken), hasAccessToken: Boolean(tokenData.accessToken) }, "Received token response from Pramaan");
 
     if (!tokenData.idToken) {
       return res.redirect(buildWebAuthUrl(mode, 'Pramaan did not return an ID token'));
@@ -354,6 +365,8 @@ export const oauthCallBack = async (req: Request, res: Response) => {
     const providerUserId = typeof payload.sub === 'string' ? payload.sub : String(payload.sub);
 
     let providerProfile: ProviderProfile = payload;
+
+    logger.debug({ providerUserId, hasAccessToken: Boolean(tokenData.accessToken) }, "Fetching user profile from Pramaan");
 
     if (tokenData.accessToken) {
       try {
@@ -369,6 +382,8 @@ export const oauthCallBack = async (req: Request, res: Response) => {
     const user = await ensureUserFromProfile(providerProfile);
     const accessToken = await auth.issueAccessToken(user);
 
+    logger.debug({ userId: user.id, accessTokenIssued: Boolean(accessToken) }, "Successfully authenticated user and issued access token");
+
     res.cookie(ACCESS_TOKEN_COOKIE_NAME, accessToken, {
       httpOnly: true,
       sameSite: 'lax',
@@ -376,6 +391,8 @@ export const oauthCallBack = async (req: Request, res: Response) => {
       maxAge: ACCESS_TOKEN_TTL_SECONDS * 1000,
       path: '/',
     });
+
+    logger.debug("Redirecting user to web application after successful authentication");
 
     return res.redirect(`${WEB_APP_URL}`);
   } catch (error) {

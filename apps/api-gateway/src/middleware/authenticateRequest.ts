@@ -1,6 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
 import { auth, AuthService, type AccessTokenPayload } from '../lib/auth.js';
-// import { logger } from '../lib/logger.js';
 
 function extractUser(payload: AccessTokenPayload): Request['user'] | null {
   const id =
@@ -27,14 +26,22 @@ export const authenticateRequest = async (req: Request, res: Response, next: Nex
   const authCookie = auth.getAccessTokenCookie(cookies);
 
   if (!authCookie) {
-    return res.status(401).json({ success: false, error: 'Access token cookie is required' });
+    return res.status(401).json({
+      success: false,
+      code: 'UNAUTHORIZED',
+      message: 'Authentication is required',
+    });
   }
 
   const payload = await auth.verifyAccessToken(authCookie.accessToken);
   const user = payload ? extractUser(payload) : null;
 
   if (!payload || !user) {
-    return res.status(401).json({ success: false, error: 'Invalid or expired access token' });
+    return res.status(401).json({
+      success: false,
+      code: 'UNAUTHORIZED',
+      message: 'Invalid or expired access token',
+    });
   }
 
   req.auth = {

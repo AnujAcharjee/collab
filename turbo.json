@@ -1,7 +1,29 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
-  "globalEnv": ["PORT", "GRPC_PORT", "NODE_ENV", "INSTANCE_NAME", "REDIS_URL", "DATABASE_URL", "JWT_SECRET", "ACCESS_TOKEN_COOKIE_NAME", "PRAMAAN_CLIENT_ID", "PRAMAAN_SECRET", "HTTP_SERVICE_URL", "WEB_APP_URL", "CALLBACK_URL", "PRAMAAN_SERVER_URL"],
+  "globalEnv": [
+    "PORT",
+    "GRPC_PORT",
+    "NODE_ENV",
+    "INSTANCE_NAME",
+    "REDIS_URL",
+    "DATABASE_URL",
+    "JWT_SECRET",
+    "ACCESS_TOKEN_COOKIE_NAME",
+    "PRAMAAN_CLIENT_ID",
+    "PRAMAAN_SECRET",
+    "HTTP_SERVICE_URL",
+    "HTTP_SERVICE_URLS",
+    "CHAT_SERVICE_URL",
+    "CHAT_SERVICE_URLS",
+    "WS_SERVICE_URL",
+    "WS_SERVICE_URLS",
+    "API_GATEWAY_URL",
+    "WEB_APP_URL",
+    "CALLBACK_URL",
+    "PRAMAAN_SERVER_URL",
+    "GATEWAY_INTERNAL_SECRET"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

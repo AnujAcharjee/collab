@@ -7,8 +7,9 @@ import { logger } from './lib/logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { userRouter } from './routes/user.js';
 import { loggingMiddleware } from './middleware/loggingMiddleware.js';
-import { authenticateRequest } from './middleware/authenticateRequest.js';
 import { authRouter } from './routes/auth.js';
+import { requireGatewaySecret } from './middleware/requireGatewaySecret.js';
+import { attachUserContext } from './middleware/attachUserContext.js';
 
 const PORT = process.env.PORT ?? 3003;
 
@@ -30,9 +31,14 @@ app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 });
 
-app.use('/api/v1/auth', authRouter);
-app.use('/api/v1/users',authenticateRequest, userRouter);
-app.use('/api/v1/rooms', authenticateRequest, roomRouter);
+app.use((req, _res, next) => {
+  console.log('[HTTP-SERVICE] Incoming:', req.method, req.path);
+  next();
+});
+
+app.use('/api/v1/auth', requireGatewaySecret, authRouter);
+app.use('/api/v1/users', requireGatewaySecret, attachUserContext, userRouter);
+app.use('/api/v1/rooms', requireGatewaySecret, attachUserContext, roomRouter);
 
 app.use(errorHandler);
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { IconShieldCheck, IconLoader2 } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
@@ -8,26 +8,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { pramaanAuthApiUrl } from "@/constants/apiUrls"
 import { AppIcon } from "@/components/AppIcon"
 
-function buildPramaanUrl(mode: "signin" | "signup") {
+function buildPramaanUrl() {
   const url = new URL(pramaanAuthApiUrl)
-  url.searchParams.set("mode", mode)
+  url.searchParams.set("mode", "signin")
   return url.toString()
 }
 
-export default function AuthPage() {
+function AuthContent() {
   const searchParams = useSearchParams()
-  const mode = searchParams.get("mode") === "signup" ? "signup" : "signin"
   const error = searchParams.get("error")
 
-  const [loading, setLoading] = useState<"signin" | "signup" | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const signinUrl = useMemo(() => buildPramaanUrl("signin"), [])
-  const signupUrl = useMemo(() => buildPramaanUrl("signup"), [])
+  const signinUrl = useMemo(() => buildPramaanUrl(), [])
 
-  const isSignup = mode === "signup"
-
-  function handleNavigate(url: string, type: "signin" | "signup") {
-    setLoading(type)
+  function handleNavigate(url: string) {
+    setLoading(true)
     window.location.href = url
   }
 
@@ -42,14 +38,10 @@ export default function AuthPage() {
           </CardTitle>
 
           <div className="space-y-2">
-            <h1 className="text-2xl font-semibold text-foreground">
-              {isSignup ? "Create your account" : "Welcome back"}
-            </h1>
+            <h1 className="text-2xl font-semibold text-foreground">Welcome back</h1>
 
             <p className="max-w-md text-sm leading-6 text-muted-foreground">
-              {isSignup
-                ? "Get started with Collab by creating your account via Pramaan. It's fast, secure, and seamless."
-                : "Sign in to continue to Collab using your secure Pramaan identity."}
+              Sign in to continue to Collab using your secure Pramaan identity.
             </p>
           </div>
         </CardHeader>
@@ -61,37 +53,20 @@ export default function AuthPage() {
             </div>
           )}
 
-          <div className="grid w-full gap-3 sm:grid-cols-2">
+          <div className="grid w-full gap-3">
             <Button
               size="lg"
               className="h-12 rounded-xl text-sm font-semibold"
-              disabled={loading !== null}
-              onClick={() => handleNavigate(signinUrl, "signin")}
+              disabled={loading}
+              onClick={() => handleNavigate(signinUrl)}
             >
-              {loading === "signin" ? (
+              {loading ? (
                 <>
                   <IconLoader2 className="mr-2 size-4 animate-spin" />
                   Redirecting…
                 </>
               ) : (
                 "Continue with Pramaan"
-              )}
-            </Button>
-
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-12 rounded-xl border-amber-200 bg-amber-300 text-sm font-semibold text-amber-900 hover:bg-amber-100 hover:text-amber-900 dark:border-amber-300/30 dark:bg-amber-300/15 dark:text-amber-100 dark:hover:bg-amber-300/20 dark:hover:text-amber-100"
-              disabled={loading !== null}
-              onClick={() => handleNavigate(signupUrl, "signup")}
-            >
-              {loading === "signup" ? (
-                <>
-                  <IconLoader2 className="mr-2 size-4 animate-spin" />
-                  Redirecting…
-                </>
-              ) : (
-                "Create new account"
               )}
             </Button>
           </div>
@@ -114,5 +89,17 @@ export default function AuthPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={
+      <div className="relative flex min-h-svh w-full items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,rgba(244,187,68,0.18),transparent_30%),linear-gradient(135deg,#fff8eb_0%,#fffdf8_45%,#f6f1e7_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(244,187,68,0.10),transparent_35%),linear-gradient(135deg,#18181b_0%,#09090b_60%,#18181b_100%)]">
+        <IconLoader2 className="size-8 animate-spin text-primary" />
+      </div>
+    }>
+      <AuthContent />
+    </Suspense>
   )
 }
