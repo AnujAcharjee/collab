@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type CSSProperties, type FormEvent } from "react"
+import { useState, type CSSProperties, type FormEvent, useRef } from "react"
 import { Fragment } from "react/jsx-runtime"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -36,7 +36,11 @@ import {
   IconLock,
   IconLockOpen2,
   IconSettings,
+  IconCamera,
 } from "@tabler/icons-react"
+import { optimizeImage } from "@/utils/image"
+import { uploadToCloudinary } from "@/utils/cloudinary"
+
 import {
   Tooltip,
   TooltipContent,
@@ -566,6 +570,14 @@ function DialogSettings() {
   const [activeTab, setActiveTab] = useState<"profile" | "appearance">("profile")
   const { theme, setTheme } = useTheme()
 
+  // State to manage avatar file selection, preview, and Cloudinary upload status
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [removePhoto, setRemovePhoto] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   if (!user) return null
 
   const userId = user.id
@@ -574,7 +586,6 @@ function DialogSettings() {
     name: user.name || "",
     username: user.username || "",
     bio: user.bio || "",
-    avatarUrl: user.avatarUrl || "",
   }
 
   const profileFields: FieldConfig<any>[] = [
@@ -596,21 +607,28 @@ function DialogSettings() {
       placeholder: "Tell us a bit about yourself",
       autoComplete: "off",
     },
-    {
-      name: "avatarUrl",
-      label: "Avatar URL",
-      placeholder: "https://example.com/avatar.jpg",
-      autoComplete: "off",
-    },
   ]
 
   async function handleEditProfile(data: any) {
     try {
+      setIsUploading(true)
+      let finalAvatarUrl: string | null = user?.avatarUrl || null
+
+      if (removePhoto) {
+        finalAvatarUrl = null
+      } else if (selectedFile) {
+        toast.info("Optimizing profile photo...", toastOptions)
+        const optimizedBlob = await optimizeImage(selectedFile)
+
+        toast.info("Uploading photo to Cloudinary...", toastOptions)
+        finalAvatarUrl = await uploadToCloudinary(optimizedBlob)
+      }
+
       const payload = {
         name: data.name?.trim() || null,
         username: data.username.trim(),
         bio: data.bio?.trim() || null,
-        avatarUrl: data.avatarUrl?.trim() || null,
+        avatarUrl: finalAvatarUrl,
       }
 
       const res = await axios.patch(`${usersApiUrl}/${userId}`, payload, {
@@ -618,13 +636,21 @@ function DialogSettings() {
       })
 
       setUser(res.data.data.user)
-      toast.success("Profile updated", toastOptions)
+      toast.success("Profile updated successfully", toastOptions)
       setOpen(false)
-    } catch (error) {
+      
+      // Reset state on successful edit
+      setSelectedFile(null)
+      setPreviewUrl(null)
+      setRemovePhoto(false)
+    } catch (error: any) {
+      console.error(error)
       const message = axios.isAxiosError(error)
         ? (error.response?.data?.error ?? error.response?.data?.message ?? "Failed to update profile")
-        : "Failed to update profile"
+        : (error.message || "Failed to update profile")
       toast.error(message, toastOptions)
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -678,14 +704,84 @@ function DialogSettings() {
 
         <div className="mt-4 min-h-[300px]">
           {activeTab === "profile" && (
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Instagram/Twitter-style Avatar Upload */}
+              <div className="flex flex-col items-center gap-3">
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="group relative size-24 cursor-pointer overflow-hidden rounded-full border-2 border-border/40 bg-muted shadow-md transition-all hover:border-primary hover:shadow-lg animate-fade-in"
+                >
+                  {/* Image Display */}
+                  <img
+                    src={
+                      removePhoto
+                        ? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || user.username)}`
+                        : previewUrl || user.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || user.username)}`
+                    }
+                    alt="Profile preview"
+                    className="h-full w-full object-cover"
+                  />
+                  
+                  {/* Hover Overlay */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <IconCamera className="size-6 text-white" />
+                    <span className="mt-1 text-[10px] font-semibold text-white">Upload</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs font-semibold rounded-lg cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Change photo
+                  </Button>
+                  
+                  {(!removePhoto && (previewUrl || user.avatarUrl)) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs font-semibold rounded-lg text-destructive hover:bg-destructive/10 cursor-pointer"
+                      onClick={() => {
+                        setSelectedFile(null)
+                        setPreviewUrl(null)
+                        setRemovePhoto(true)
+                      }}
+                    >
+                      Remove photo
+                    </Button>
+                  )}
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png, image/jpeg, image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      setSelectedFile(file)
+                      const objectUrl = URL.createObjectURL(file)
+                      setPreviewUrl(objectUrl)
+                      setRemovePhoto(false)
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Edit Profile Text Form */}
               <AppForm
                 formId="edit-profile-form"
                 schema={editUserBodySchema}
                 defaultValues={defaultProfileValues}
                 fields={profileFields}
                 onSubmit={handleEditProfile}
-                submitLabel="Save changes"
+                submitLabel={isUploading ? "Uploading & saving..." : "Save changes"}
                 pendingLabel="Saving changes..."
               />
             </div>
